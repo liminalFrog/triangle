@@ -1,36 +1,32 @@
 .title-bar {
-  height: 32px;
   display: flex;
-  background-color: #2d2d2d;
-  color: #cccccc;
-  -webkit-app-region: no-drag;
-  user-select: none;
-  align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #1a1a1a;
-  z-index: 100;
+  align-items: center;
+  height: 38px;
+  background-color: #252526;
+  color: #cccccc;
+  -webkit-app-region: drag;
+  user-select: none;
 }
 
 .title-bar-drag-area {
-  flex: 1;
   display: flex;
   align-items: center;
-  -webkit-app-region: drag;
+  flex: 1;
   height: 100%;
 }
 
 .title-bar-icon {
-  width: 16px;
-  height: 16px;
-  margin-right: 4px;
+  width: 20px;
+  height: 20px;
+  margin-right: 8px;
 }
 
 .app-icon {
   display: flex;
   align-items: center;
-  margin-left: 12px;
-  font-weight: 500;
-  margin-right: 8px;
+  margin-left: 10px;
+  margin-right: 15px;
 }
 
 .window-controls {
@@ -39,52 +35,78 @@
 }
 
 .window-control {
-  width: 46px;
-  height: 32px;
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
+  width: 46px;
+  height: 38px;
   color: #cccccc;
-  transition: background-color 0.1s;
-  padding: 0;
+  background-color: transparent;
   border: none;
+  padding: 0;
 }
 
 .window-control:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: #333333;
 }
 
 .window-control.close:hover {
   background-color: #e81123;
 }
 
-.window-control.close:hover svg {
+.custom-navbar {
+  padding: 0;
+  -webkit-app-region: no-drag;
+}
+
+.nav-link {
+  color: #cccccc;
+  padding: 0 10px;
+  height: 38px;
+  line-height: 38px;
+}
+
+.nav-link:hover, .nav-link:focus {
   color: white;
 }
 
-.custom-navbar {
-  height: 32px;
-  padding: 0;
+.dropdown-menu {
+  background-color: #252526;
+  border: 1px solid #454545;
+  border-radius: 0;
+  padding: 4px 0;
+  margin-top: 0;
+  min-width: 260px;
 }
 
-.custom-navbar .nav-link {
-  height: 32px;
+.dropdown-item {
   display: flex;
-  align-items: center;
-  padding: 0 8px;
-  font-size: 12px;
+  justify-content: space-between;
+  color: #cccccc;
+  padding: 6px 12px;
 }
 
-.custom-navbar .nav-link:hover {
-  background-color: rgba(255, 255, 255, 0.1);
+.dropdown-item:hover, .dropdown-item:focus {
+  background-color: #094771;
+  color: white;
+}
+
+.dropdown-divider {
+  border-top: 1px solid #454545;
+  margin: 4px 0;
+}
+
+.shortcut {
+  color: #8a8a8a;
+  margin-left: 20px;
+  font-size: 0.85em;
 }
 
 .file-title {
-  font-size: 12px;
-  margin-left: 12px;
-  opacity: 0.8;
+  font-size: 0.9em;
+  margin-left: 20px;
+  color: #8a8a8a;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  max-width: 200px;
 }

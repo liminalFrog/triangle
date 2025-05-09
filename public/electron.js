@@ -274,6 +274,47 @@ ipcMain.on('window-close', () => {
   if (mainWindow) mainWindow.close();
 });
 
+// Menu action handlers
+ipcMain.on('menu-new', () => {
+  mainWindow.webContents.send('file-new');
+  currentFilePath = null;
+});
+
+ipcMain.on('menu-open', () => {
+  showOpenDialog();
+});
+
+ipcMain.on('menu-save', () => {
+  if (currentFilePath) {
+    mainWindow.webContents.send('file-save', currentFilePath);
+  } else {
+    showSaveDialog();
+  }
+});
+
+ipcMain.on('menu-save-as', () => {
+  showSaveDialog();
+});
+
+ipcMain.on('menu-exit', () => {
+  app.quit();
+});
+
+ipcMain.on('toggle-fullscreen', () => {
+  if (mainWindow) {
+    const isFullScreen = mainWindow.isFullScreen();
+    mainWindow.setFullScreen(!isFullScreen);
+  }
+});
+
+// You could add these as well for other menu actions if needed
+ipcMain.on('add-object', (event, objectType) => {
+  // This would just relay the message back to the renderer process
+  if (mainWindow) {
+    mainWindow.webContents.send('add-object', objectType);
+  }
+});
+
 app.whenReady().then(createWindow);
 
 app.on('window-all-closed', () => {

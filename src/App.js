@@ -24,6 +24,86 @@ function App() {
     }
   }, [projectData]);
 
+  // Handle keyboard shortcuts
+  const handleKeyDown = useCallback((e) => {
+    // Ctrl key combinations
+    if (e.ctrlKey) {
+      if (e.shiftKey) {
+        // Ctrl+Shift combinations
+        switch (e.key.toLowerCase()) {
+          case 's': // Ctrl+Shift+S (Save As)
+            e.preventDefault();
+            if (ipcRenderer) ipcRenderer.send('menu-save-as');
+            break;
+          case 'z': // Ctrl+Shift+Z (Redo)
+            e.preventDefault();
+            console.log('Redo');
+            break;
+          default:
+            break;
+        }
+      } else if (e.altKey) {
+        // Ctrl+Alt combinations (Save Camera Position)
+        const num = parseInt(e.key);
+        if (!isNaN(num) && num >= 0 && num <= 9) {
+          e.preventDefault();
+          console.log(`Save camera position ${num}`);
+        }
+      } else {
+        // Simple Ctrl combinations
+        switch (e.key.toLowerCase()) {
+          case 'n': // Ctrl+N (New)
+            e.preventDefault();
+            if (ipcRenderer) ipcRenderer.send('menu-new');
+            break;
+          case 'o': // Ctrl+O (Open)
+            e.preventDefault();
+            if (ipcRenderer) ipcRenderer.send('menu-open');
+            break;
+          case 's': // Ctrl+S (Save)
+            e.preventDefault();
+            if (ipcRenderer) ipcRenderer.send('menu-save');
+            break;
+          case 'z': // Ctrl+Z (Undo)
+            e.preventDefault();
+            console.log('Undo');
+            break;
+          case 'q': // Ctrl+Q (Exit)
+            e.preventDefault();
+            if (ipcRenderer) ipcRenderer.send('menu-exit');
+            break;
+          default:
+            break;
+        }
+      }
+    } else {
+      // Function key shortcuts
+      switch (e.key) {
+        case 'F1': // F1 (Help)
+          e.preventDefault();
+          console.log('Help');
+          break;
+        case 'F11': // F11 (Fullscreen)
+          e.preventDefault();
+          if (ipcRenderer) ipcRenderer.send('toggle-fullscreen');
+          break;
+        case 'F12': // F12 (Render)
+          e.preventDefault();
+          console.log('Render');
+          break;
+        case 'NumPad5': // Numpad 5 (Toggle Perspective/Orthographic)
+        case '5': // For some keyboards
+          if (e.code === 'Numpad5') {
+            e.preventDefault();
+            console.log('Toggle Perspective/Orthographic');
+          }
+          break;
+        default:
+          break;
+      }
+    }
+  }, []);
+
   useEffect(() => {
     if (ipcRenderer) {
       // Listen for file-new event
@@ -61,6 +141,9 @@ function App() {
       });
     }
 
+    // Add event listener for keyboard shortcuts
+    window.addEventListener('keydown', handleKeyDown);
+
     return () => {
       if (ipcRenderer) {
         ipcRenderer.removeAllListeners('file-new');
@@ -68,8 +151,11 @@ function App() {
         ipcRenderer.removeAllListeners('file-save');
         ipcRenderer.removeAllListeners('file-saved');
       }
+      
+      // Remove event listener for keyboard shortcuts
+      window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [saveFile]); // Added saveFile to the dependency array
+  }, [saveFile, handleKeyDown]); 
 
   const updateProjectData = (newData) => {
     setProjectData(newData);
