@@ -125,7 +125,7 @@ function TitleBar({ currentFile, dirty }) {
   };
 
   return (
-    <div className="title-bar">
+    <div className="title-bar" data-bs-theme="dark">
       <div className="title-bar-drag-area">
         <div className="app-icon">
           <img src="/triangle-icon.png" alt="Triangle" className="title-bar-icon" />
