@@ -1,0 +1,128 @@
+.floating-panel {
+  position: absolute;
+  top: 40px; /* Allow space for the title bar */
+  background-color: rgba(0, 0, 0, 0.75);
+  display: flex;
+  flex-direction: column;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  z-index: 700;
+  height: auto;
+  max-height: calc(100vh - 90px); /* Allow space for bottom status bar and top title bar */
+}
+
+.floating-panel.left {
+  left: 10px;
+}
+
+.floating-panel.right {
+  right: 10px;
+}
+
+.panel-header {
+  padding: 8px 12px;
+  background-color: rgba(40, 40, 40, 0.9);
+  border-bottom: 1px solid #404040;
+  display: flex;
+  align-items: center;
+  user-select: none;
+  cursor: default;
+}
+
+.panel-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #e0e0e0;
+  flex: 1;
+}
+
+.panel-content {
+  padding: 12px;
+  overflow-y: auto;
+  flex: 1;
+  color: #cccccc;
+  font-size: 12px;
+}
+
+.panel-resizer {
+  position: absolute;
+  top: 0;
+  width: 5px;
+  height: 100%;
+  cursor: ew-resize;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.panel-resizer.left {
+  right: 0;
+}
+
+.panel-resizer.right {
+  left: 0;
+}
+
+.resizer-handle {
+  height: 40px;
+  width: 3px;
+  background-color: #0078d7;
+  border-radius: 3px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.panel-resizer:hover .resizer-handle {
+  opacity: 0.5;
+}
+
+/* When actively resizing */
+.panel-resizer:active .resizer-handle {
+  opacity: 0.8;
+}
+
+.collapse-button {
+  background: none;
+  border: none;
+  color: #cccccc;
+  padding: 0;
+  margin-right: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.collapse-button:hover {
+  color: white;
+}
+
+.floating-panel.collapsed {
+  width: auto !important;
+}
+
+.floating-panel.collapsed .panel-header {
+  border-bottom: none;
+}
+
+.panel-controls {
+  display: flex;
+  align-items: center;
+}
+
+/* Sample content styling */
+.panel-section {
+  margin-bottom: 12px;
+}
+
+.panel-section-title {
+  font-size: 12px;
+  font-weight: 500;
+  margin-bottom: 6px;
+  padding-bottom: 3px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  color: #e0e0e0;
+}

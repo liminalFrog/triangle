@@ -12,6 +12,8 @@
   display: flex;
   overflow: hidden;
   position: relative;
+  /* Make space for status bar */
+  padding-bottom: 28px;
 }
 
 .canvas-container {

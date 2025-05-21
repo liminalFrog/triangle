@@ -2,6 +2,10 @@ import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import TitleBar from './components/TitleBar';
 import Scene3D from './components/Scene3D';
+import StatusBar from './components/StatusBar';
+import FloatingPanel from './components/FloatingPanel';
+import ElementsPanel from './components/ElementsPanel';
+import InfoPanel from './components/InfoPanel';
 
 const electron = window.electron;
 const ipcRenderer = electron ? electron.ipcRenderer : null;
@@ -169,10 +173,31 @@ function App() {
         dirty={dirty}
       />
       <div className="content-area">
+        {/* Left floating panel (Elements) */}
+        <FloatingPanel
+          title="Elements"
+          position="left"
+          defaultWidth={300}
+        >
+          <ElementsPanel />
+        </FloatingPanel>
+        
+        {/* Right floating panel (Info) */}
+        <FloatingPanel
+          title="Info"
+          position="right"
+          defaultWidth={200}
+        >
+          <InfoPanel />
+        </FloatingPanel>
+        
         <Scene3D 
           projectData={projectData} 
           updateProjectData={updateProjectData}
         />
+        
+        {/* Status bar at the bottom */}
+        <StatusBar />
       </div>
     </div>
   );
