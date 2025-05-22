@@ -27,9 +27,18 @@ function App() {
       ipcRenderer.send('save-file-content', { filePath, content });
     }
   }, [projectData]);
-
   // Handle keyboard shortcuts
   const handleKeyDown = useCallback((e) => {
+    // Skip if the target is an input element
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
+      return;
+    }
+    
+    // Skip handling Shift+A as it's used for the context menu in Scene3D
+    if (e.key === 'A' && e.shiftKey) {
+      return;
+    }
+    
     // Ctrl key combinations
     if (e.ctrlKey) {
       if (e.shiftKey) {
@@ -176,24 +185,18 @@ function App() {
         {/* Left floating panel (Elements) */}
         <FloatingPanel
           title="Elements"
+          icon="elements-sm"
           position="left"
           topbottom="top"
           defaultWidth={300}
         >
           <ElementsPanel />
         </FloatingPanel>
-        <FloatingPanel
-          title="Tools"
-          position="left"
-          topbottom="bottom"
-          defaultWidth={300}
-        >
-          Tools Panel Content
-        </FloatingPanel>
         
         {/* Right floating panel (Info) */}
         <FloatingPanel
           title="Info"
+          icon="info-sm"
           position="right"
           topbottom="top"
           defaultWidth={200}

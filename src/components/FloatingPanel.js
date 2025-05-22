@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './FloatingPanel.css';
 
-function FloatingPanel({ title, position, topbottom, defaultWidth, children }) {
+function FloatingPanel({ title, icon, position, topbottom, defaultWidth, children }) {
   const [width, setWidth] = useState(defaultWidth);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const panelRef = useRef(null);
@@ -67,7 +67,10 @@ function FloatingPanel({ title, position, topbottom, defaultWidth, children }) {
         >
           {isCollapsed ? '>' : '<'}
         </button>
-        <span className="panel-title">{title}</span>
+        <span className="panel-title">
+          <img src={`icons/${icon}.png`} alt={title} className="panel-icon mb-1 me-1" width={16} />
+          {title}
+        </span>
         <div className="panel-controls">
           {/* Panel-specific controls can go here */}
         </div>

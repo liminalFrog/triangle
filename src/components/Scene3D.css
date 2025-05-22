@@ -8,3 +8,38 @@
   width: 100% !important;
   height: 100% !important;
 }
+
+.keyboard-hint {
+  position: absolute;
+  bottom: 15px;
+  left: 50%;
+  transform: translateX(-50%);
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #cccccc;
+  padding: 6px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  pointer-events: none;
+  opacity: 0.7;
+  transition: opacity 0.3s;
+  z-index: 500;
+}
+
+.scene-container:hover .keyboard-hint {
+  opacity: 0.3;
+}
+
+.keyboard-hint kbd {
+  background-color: #333;
+  border: 1px solid #555;
+  border-radius: 3px;
+  box-shadow: 0 1px 0 rgba(0,0,0,0.2), inset 0 0 0 1px rgba(255,255,255,0.15);
+  color: #fff;
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  padding: 2px 4px;
+  margin: 0 2px;
+  white-space: nowrap;
+}

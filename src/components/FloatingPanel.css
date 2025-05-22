@@ -5,9 +5,10 @@
   flex-direction: column;
   border-radius: 0.5rem;
   overflow: hidden;
-  z-index: 700;
+  z-index: 700; /* Keep at 700 so context menu (z-index: 1000) appears on top */
   height: auto;
   max-height: calc(100vh - 90px); /* Allow space for bottom status bar and top title bar */
+  /* backdrop-filter: blur(1rem); */
 }
 
 .floating-panel.left {
