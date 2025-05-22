@@ -27,7 +27,6 @@ function ContextMenu({ position, onClose, items }) {
       document.removeEventListener('keydown', handleKeyDown);
     };
   }, [onClose]);
-
   // If position is off-screen, adjust it
   useEffect(() => {
     if (menuRef.current) {
@@ -35,15 +34,22 @@ function ContextMenu({ position, onClose, items }) {
       const viewportWidth = window.innerWidth;
       const viewportHeight = window.innerHeight;
 
+      let adjustedLeft = position.x;
+      let adjustedTop = position.y;
+
       // Check if menu goes beyond the right edge
       if (position.x + menuRect.width > viewportWidth) {
-        menuRef.current.style.left = `${viewportWidth - menuRect.width - 10}px`;
+        adjustedLeft = viewportWidth - menuRect.width - 10;
       }
 
       // Check if menu goes beyond the bottom edge
       if (position.y + menuRect.height > viewportHeight) {
-        menuRef.current.style.top = `${viewportHeight - menuRect.height - 10}px`;
+        adjustedTop = viewportHeight - menuRect.height - 10;
       }
+
+      // Apply adjusted position
+      menuRef.current.style.left = `${adjustedLeft}px`;
+      menuRef.current.style.top = `${adjustedTop}px`;
     }
   }, [position]);
 
@@ -55,14 +61,15 @@ function ContextMenu({ position, onClose, items }) {
     acc[item.category].push(item);
     return acc;
   }, {});
-
   return (
     <div 
       className="context-menu" 
       ref={menuRef} 
       style={{ 
+        position: 'fixed',
         left: `${position.x}px`, 
         top: `${position.y}px`,
+        zIndex: 1000
       }}
     >
       {Object.entries(groupedItems).map(([category, categoryItems], index) => (

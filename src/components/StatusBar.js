@@ -1,7 +1,7 @@
 import React from 'react';
 import './StatusBar.css';
 
-function StatusBar() {
+function StatusBar({ viewType = 'Perspective' }) {
   return (
     <div className="status-bar">
       <div className="status-section">
@@ -23,7 +23,7 @@ function StatusBar() {
       </div>
       <div className="status-section">
         <span className="status-label">View:</span>
-        <span className="status-value">Perspective</span>
+        <span className="status-value">{viewType}</span>
       </div>
       <div className="status-section right">
         <span className="status-info">Triangle v0.1.0</span>

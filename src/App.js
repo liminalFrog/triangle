@@ -10,8 +10,7 @@ import InfoPanel from './components/InfoPanel';
 const electron = window.electron;
 const ipcRenderer = electron ? electron.ipcRenderer : null;
 
-function App() {
-  const [currentFile, setCurrentFile] = useState(null);
+function App() {  const [currentFile, setCurrentFile] = useState(null);
   const [projectData, setProjectData] = useState({ 
     // Default initial data
     scene: {
@@ -19,6 +18,7 @@ function App() {
     } 
   });
   const [dirty, setDirty] = useState(false);
+  const [currentViewType, setCurrentViewType] = useState('Perspective');
 
   // Use useCallback to memoize the saveFile function
   const saveFile = useCallback((filePath) => {
@@ -33,9 +33,15 @@ function App() {
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
       return;
     }
-    
-    // Skip handling Shift+A as it's used for the context menu in Scene3D
+      // Skip handling Shift+A as it's used for the context menu in Scene3D
     if (e.key === 'A' && e.shiftKey) {
+      return;
+    }
+    
+    // Skip handling numpad keys as they're used for camera control in Scene3D
+    const numpadKeys = ['Numpad0', 'Numpad1', 'Numpad2', 'Numpad3', 'Numpad4', 
+                        'Numpad5', 'Numpad6', 'Numpad7', 'Numpad8', 'Numpad9'];
+    if (numpadKeys.includes(e.code) || (e.location === 3 && e.key >= '0' && e.key <= '9')) {
       return;
     }
     
@@ -169,11 +175,14 @@ function App() {
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [saveFile, handleKeyDown]); 
-
   const updateProjectData = (newData) => {
     setProjectData(newData);
     setDirty(true);
   };
+
+  const handleViewTypeChange = useCallback((viewType) => {
+    setCurrentViewType(viewType);
+  }, []);
 
   return (
     <div className="app-container">
@@ -185,7 +194,6 @@ function App() {
         {/* Left floating panel (Elements) */}
         <FloatingPanel
           title="Elements"
-          icon="elements-sm"
           position="left"
           topbottom="top"
           defaultWidth={300}
@@ -196,7 +204,6 @@ function App() {
         {/* Right floating panel (Info) */}
         <FloatingPanel
           title="Info"
-          icon="info-sm"
           position="right"
           topbottom="top"
           defaultWidth={200}
@@ -207,10 +214,11 @@ function App() {
         <Scene3D 
           projectData={projectData} 
           updateProjectData={updateProjectData}
+          updateViewType={handleViewTypeChange}
         />
         
         {/* Status bar at the bottom */}
-        <StatusBar />
+        <StatusBar viewType={currentViewType} />
       </div>
     </div>
   );
