@@ -2,12 +2,13 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  height: 32px;
+  height: 38px;
   background-color: #252526;
   color: #cccccc;
   -webkit-app-region: drag;
   user-select: none;
   font-size: 12px;
+  border-bottom: 1px solid #404040;
 }
 
 .title-bar-drag-area {
@@ -41,18 +42,18 @@
   justify-content: center;
   width: 46px;
   height: 38px;
+  border-radius: 0 !important;
   color: #cccccc;
   background-color: transparent;
   border: none;
-  padding: 0;
 }
 
 .window-control:hover {
-  background-color: #333333;
+  background-color: #5a5a5a !important;
 }
 
 .window-control.close:hover {
-  background-color: #e81123;
+  background-color: #e81123 !important;
 }
 
 .custom-navbar {
@@ -127,5 +128,12 @@
   color: #8a8a8a;
   white-space: nowrap;
   overflow: hidden;
+  width: 200px;
+  text-align: center;
   text-overflow: ellipsis;
+  border: 1px solid #000000;
+  background-color: #171717;
+  box-shadow: inset 0 0 5px #000000, 0 1px 0 rgba(255, 255, 255, 0.1);
+  padding: 0.2rem 0.4rem;
+  border-radius: 0.4rem;;
 }
