@@ -177,15 +177,25 @@ function App() {
         <FloatingPanel
           title="Elements"
           position="left"
+          topbottom="top"
           defaultWidth={300}
         >
           <ElementsPanel />
+        </FloatingPanel>
+        <FloatingPanel
+          title="Tools"
+          position="left"
+          topbottom="bottom"
+          defaultWidth={300}
+        >
+          Tools Panel Content
         </FloatingPanel>
         
         {/* Right floating panel (Info) */}
         <FloatingPanel
           title="Info"
           position="right"
+          topbottom="top"
           defaultWidth={200}
         >
           <InfoPanel />

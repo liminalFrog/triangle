@@ -4,6 +4,19 @@
   flex-direction: column;
 }
 
+.panel-section {
+  margin-bottom: 16px;
+}
+
+.panel-section-title {
+  font-size: 14px;
+  font-weight: 600;
+  color: #e0e0e0;
+  margin-bottom: 8px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+}
+
 .object-list {
   display: flex;
   flex-direction: column;
@@ -48,4 +61,60 @@
 
 .category-item:hover {
   background-color: rgba(70, 70, 70, 0.5);
+}
+
+/* Styles for icon grid in the library section */
+.icon-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 5px 0;
+}
+
+.icon-button {
+  width: 48px;
+  height: 48px;
+  padding: 4px;
+  border: 1px solid #454545;
+  border-radius: 4px;
+  background-color: rgba(40, 40, 40, 0.7);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.icon-button:hover {
+  background-color: rgba(60, 60, 60, 0.9);
+  border-color: #666666;
+  box-shadow: 0 0 5px rgba(0, 120, 215, 0.5);
+}
+
+.icon-button:active {
+  background-color: rgba(0, 165, 215, 0.5);
+  border-color: #88d7ff;
+}
+
+.icon-button::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: radial-gradient(circle, rgba(0, 120, 215, 0.7) 0%, rgba(0, 120, 215, 0) 70%);
+  opacity: 0;
+}
+
+.icon-button:active::after {
+  opacity: 1;
+}
+
+.icon-image {
+  max-width: 36px;
+  max-height: 36px;
+  object-fit: contain;
+  z-index: 1;
 }

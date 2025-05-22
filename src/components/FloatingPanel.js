@@ -1,60 +1,61 @@
 import React, { useState, useRef, useEffect } from 'react';
 import './FloatingPanel.css';
 
-function FloatingPanel({ title, position, defaultWidth, children }) {
+function FloatingPanel({ title, position, topbottom, defaultWidth, children }) {
   const [width, setWidth] = useState(defaultWidth);
-  const [isDragging, setIsDragging] = useState(false);
   const [isCollapsed, setIsCollapsed] = useState(false);
   const panelRef = useRef(null);
   const resizerRef = useRef(null);
+  const isDraggingRef = useRef(false);
 
   // Handle resize dragging
   const handleMouseDown = (e) => {
     e.preventDefault();
-    setIsDragging(true);
-    document.addEventListener('mousemove', handleMouseMove);
-    document.addEventListener('mouseup', handleMouseUp);
-  };
-
-  const handleMouseMove = (e) => {
-    if (isDragging && panelRef.current) {
-      // Calculate new width based on mouse position and panel position
-      let newWidth;
-      
-      if (position === 'left') {
-        newWidth = e.clientX - panelRef.current.getBoundingClientRect().left;
-      } else { // right
-        newWidth = panelRef.current.getBoundingClientRect().right - e.clientX;
-      }
-      
-      // Set a minimum width to ensure panel is always usable
-      if (newWidth >= 100) {
-        setWidth(newWidth);
-      }
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    document.removeEventListener('mousemove', handleMouseMove);
-    document.removeEventListener('mouseup', handleMouseUp);
+    isDraggingRef.current = true;
   };
 
   const toggleCollapse = () => {
     setIsCollapsed(!isCollapsed);
   };
 
-  // Clean up event listeners
+  // Set up and clean up event listeners
   useEffect(() => {
+    const handleMouseMove = (e) => {
+      if (isDraggingRef.current && panelRef.current) {
+        // Calculate new width based on mouse position and panel position
+        let newWidth;
+        
+        if (position === 'left') {
+          newWidth = e.clientX - panelRef.current.getBoundingClientRect().left;
+        } else { // right
+          newWidth = panelRef.current.getBoundingClientRect().right - e.clientX;
+        }
+        
+        // Set a minimum width to ensure panel is always usable
+        if (newWidth >= 100) {
+          setWidth(newWidth);
+        }
+      }
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+    };
+
+    // Add event listeners
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    
     return () => {
+      // Clean up event listeners
       document.removeEventListener('mousemove', handleMouseMove);
       document.removeEventListener('mouseup', handleMouseUp);
     };
-  }, []);
+  }, [position]); // Only re-run if position changes
 
   return (
     <div 
-      className={`floating-panel ${position} ${isCollapsed ? 'collapsed' : ''}`} 
+      className={`floating-panel ${position} ${topbottom} ${isCollapsed ? 'collapsed' : ''}`} 
       ref={panelRef}
       style={{ width: isCollapsed ? 'auto' : `${width}px` }}
     >

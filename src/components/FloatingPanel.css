@@ -1,6 +1,5 @@
 .floating-panel {
   position: absolute;
-  top: 10px; /* Allow space for the title bar */
   background-color: rgba(0, 0, 0, 0.75);
   display: flex;
   flex-direction: column;
@@ -19,6 +18,14 @@
   right: 10px;
 }
 
+.floating-panel.top {
+  top: 10px;
+}
+
+.floating-panel.bottom {
+  bottom: 40px;
+}
+
 .panel-header {
   padding: 4px 8px;
   background-color: rgba(0, 0, 0, 0.733);
@@ -27,6 +34,7 @@
   align-items: center;
   user-select: none;
   cursor: default;
+  text-align: center;
 }
 
 .panel-title {
