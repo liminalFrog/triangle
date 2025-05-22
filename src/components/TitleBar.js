@@ -193,8 +193,7 @@ function TitleBar({ currentFile, dirty }) {
     <div className="title-bar" data-bs-theme="dark">
       <div className="title-bar-drag-area">
         <div className="app-icon">
-          <img src="/triangle-icon.png" alt="Triangle" className="title-bar-icon" />
-          <span>Triangle</span>
+          <img src="icon.png" alt="Triangle" className="title-bar-icon" />
         </div>
         <Navbar variant="dark" className="custom-navbar" ref={menuRef} tabIndex="-1">
           <Nav className="me-auto">            <Dropdown

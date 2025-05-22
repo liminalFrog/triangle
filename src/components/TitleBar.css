@@ -65,8 +65,9 @@
 
 .nav-link {
   color: #cccccc;
-  height: 38px;
-  line-height: 38px;
+  height: 24px;
+  line-height: 24px;
+  border-radius: 0.4rem;;
   -webkit-app-region: no-drag;
   /* Allow selecting menu items */
   user-select: none;
@@ -89,7 +90,7 @@
 
 .dropdown-toggle:focus,
 .dropdown-toggle:active {
-  background-color: #094771;
+  background-color: #3d3d3d;
   color: white;
 }
 
