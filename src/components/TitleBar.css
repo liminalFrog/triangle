@@ -60,6 +60,7 @@
 .custom-navbar {
   padding: 0;
   -webkit-app-region: no-drag;
+  outline: none;
 }
 
 .nav-link {
@@ -67,6 +68,8 @@
   height: 38px;
   line-height: 38px;
   -webkit-app-region: no-drag;
+  /* Allow selecting menu items */
+  user-select: none;
 }
 
 .dropdown-toggle::after {
@@ -75,16 +78,32 @@
 
 .dropdown-toggle {
   padding: 0 10px !important;
+  -webkit-app-region: no-drag;
+  transition: background-color 0.15s ease;
+}
 
-  &:hover {
-    background-color: #333333;
-  }
-  &:focus {
-    background-color: #555;
-  }
-  &:active {
-    background-color: #333;
-  }
+.dropdown-toggle:hover {
+  background-color: #333333;
+  color: white;
+}
+
+.dropdown-toggle:focus,
+.dropdown-toggle:active {
+  background-color: #094771;
+  color: white;
+}
+
+.menu-toggle:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+/* Remove focus outlines from dropdowns and menu items */
+.dropdown-toggle:focus,
+.dropdown-item:focus,
+.custom-navbar:focus {
+  outline: none !important;
+  box-shadow: none !important;
 }
 
 .nav-link:hover, .nav-link:focus {
@@ -99,6 +118,8 @@
   margin-top: 0;
   min-width: 260px;
   -webkit-app-region: no-drag;
+  /* Prevent menu from getting focus */
+  outline: none;
 }
 
 .dropdown-item {
@@ -107,10 +128,23 @@
   color: #cccccc;
   padding: 2px 10px !important;
   font-size: 12px;
+  transition: background-color 0.15s ease;
 }
 
-.dropdown-item:hover, .dropdown-item:focus {
+.dropdown-item:hover {
   background-color: #094771;
+  color: white;
+}
+
+/* Separate the focus and hover states for clarity */
+.dropdown-item:focus {
+  background-color: #094771;
+  color: white;
+}
+
+/* Active state when being clicked */
+.dropdown-item:active {
+  background-color: #1177bb;
   color: white;
 }
 

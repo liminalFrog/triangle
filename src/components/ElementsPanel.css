@@ -89,7 +89,6 @@
 .icon-button:hover {
   background-color: rgba(60, 60, 60, 0.9);
   border-color: #666666;
-  box-shadow: 0 0 5px rgba(0, 120, 215, 0.5);
 }
 
 .icon-button:active {
