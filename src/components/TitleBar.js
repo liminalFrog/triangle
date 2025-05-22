@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Navbar, Nav, Button, Dropdown } from 'react-bootstrap';
 import path from 'path-browserify';
 import './TitleBar.css';
-import { CgMathMinus, CgMinimize, CgMaximize, CgClose } from 'react-icons/cg';
+import { CgMathMinus, CgMaximize, CgClose } from 'react-icons/cg';
 
 const electron = window.electron;
 const ipcRenderer = electron ? electron.ipcRenderer : null;
@@ -276,16 +276,11 @@ function TitleBar({ currentFile, dirty }) {
         </Navbar>
         <div className="file-title">{getFilename()}</div>
       </div>
-      <div className="window-controls">
-        <Button variant="link" className="window-control minimize" onClick={handleMinimize}>
+      <div className="window-controls">        <Button variant="link" className="window-control minimize" onClick={handleMinimize}>
           <CgMathMinus />
         </Button>
         <Button variant="link" className="window-control maximize" onClick={handleMaximize}>
-          {ipcRenderer && ipcRenderer.send('window-maximize') ? (
-            <CgMinimize />
-          ) : (
-            <CgMaximize />
-          )}
+          <CgMaximize />
         </Button>
         <Button variant="link" className="window-control close" onClick={handleClose}>
           <CgClose />
