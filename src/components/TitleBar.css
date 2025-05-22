@@ -3,7 +3,7 @@
   justify-content: space-between;
   align-items: center;
   height: 38px;
-  background-color: #252526;
+  background-color: #161616;
   color: #cccccc;
   user-select: none;
   font-size: 12px;
@@ -121,6 +121,7 @@
   -webkit-app-region: no-drag;
   /* Prevent menu from getting focus */
   outline: none;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
 }
 
 .dropdown-item {

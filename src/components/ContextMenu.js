@@ -26,30 +26,34 @@ function ContextMenu({ position, onClose, items }) {
       document.removeEventListener('mousedown', handleClickOutside);
       document.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onClose]);
-  // If position is off-screen, adjust it
+  }, [onClose]);  // If position is off-screen, adjust it
   useEffect(() => {
     if (menuRef.current) {
-      const menuRect = menuRef.current.getBoundingClientRect();
-      const viewportWidth = window.innerWidth;
-      const viewportHeight = window.innerHeight;
-
-      let adjustedLeft = position.x;
-      let adjustedTop = position.y;
-
-      // Check if menu goes beyond the right edge
-      if (position.x + menuRect.width > viewportWidth) {
-        adjustedLeft = viewportWidth - menuRect.width - 10;
-      }
-
-      // Check if menu goes beyond the bottom edge
-      if (position.y + menuRect.height > viewportHeight) {
-        adjustedTop = viewportHeight - menuRect.height - 10;
-      }
-
-      // Apply adjusted position
-      menuRef.current.style.left = `${adjustedLeft}px`;
-      menuRef.current.style.top = `${adjustedTop}px`;
+      // Wait a frame for the menu to render properly
+      requestAnimationFrame(() => {
+        const menuRect = menuRef.current.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const viewportHeight = window.innerHeight;
+  
+        let adjustedLeft = position.x;
+        let adjustedTop = position.y;
+  
+        // Check if menu goes beyond the right edge
+        if (position.x + menuRect.width > viewportWidth) {
+          adjustedLeft = viewportWidth - menuRect.width - 10;
+        }
+  
+        // Check if menu goes beyond the bottom edge
+        if (position.y + menuRect.height > viewportHeight) {
+          adjustedTop = viewportHeight - menuRect.height - 10;
+        }
+  
+        // Apply adjusted position
+        if (menuRef.current) {
+          menuRef.current.style.left = `${adjustedLeft}px`;
+          menuRef.current.style.top = `${adjustedTop}px`;
+        }
+      });
     }
   }, [position]);
 
@@ -60,8 +64,7 @@ function ContextMenu({ position, onClose, items }) {
     }
     acc[item.category].push(item);
     return acc;
-  }, {});
-  return (
+  }, {});  return (
     <div 
       className="context-menu" 
       ref={menuRef} 
@@ -69,7 +72,8 @@ function ContextMenu({ position, onClose, items }) {
         position: 'fixed',
         left: `${position.x}px`, 
         top: `${position.y}px`,
-        zIndex: 1000
+        zIndex: 1000,
+        transform: 'translate3d(0, 0, 0)'
       }}
     >
       {Object.entries(groupedItems).map(([category, categoryItems], index) => (

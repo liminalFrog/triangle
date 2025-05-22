@@ -23,39 +23,36 @@ const VIEW_TYPE = {
   BOTTOM: 'bottom'
 };
 
-// Helper function to determine view type from camera direction
+// Helper function to determine view type based on camera direction
 const determineViewType = (direction) => {
-  const absX = Math.abs(direction.x);
-  const absY = Math.abs(direction.y);
-  const absZ = Math.abs(direction.z);
+  const tolerance = 0.9; // Threshold for determining primary axis alignment
   
-  if (absY > absX && absY > absZ) {
-    // Mainly looking up/down
-    if (direction.y > 0) {
-      return VIEW_TYPE.BOTTOM;
-    } else {
-      return VIEW_TYPE.TOP;
-    }
-  } else if (absX > absZ) {
-    // Mainly looking east/west
-    if (direction.x > 0) {
-      return VIEW_TYPE.LEFT;
-    } else {
-      return VIEW_TYPE.RIGHT;
-    }
-  } else {
-    // Mainly looking north/south
-    if (direction.z > 0) {
-      return VIEW_TYPE.BACK;
-    } else {
-      return VIEW_TYPE.FRONT;
-    }
+  if (Math.abs(direction.y) > tolerance) {
+    return direction.y > 0 ? VIEW_TYPE.BOTTOM : VIEW_TYPE.TOP;
   }
+  
+  if (Math.abs(direction.z) > tolerance) {
+    return direction.z > 0 ? VIEW_TYPE.BACK : VIEW_TYPE.FRONT;
+  }
+  
+  if (Math.abs(direction.x) > tolerance) {
+    return direction.x > 0 ? VIEW_TYPE.LEFT : VIEW_TYPE.RIGHT;
+  }
+  
+  return VIEW_TYPE.PERSPECTIVE;
 };
 
 function Scene3D({ projectData, updateProjectData, updateViewType }) {
   const cameraControlsRef = useRef();
   const canvasContainerRef = useRef();
+  const lastCameraStateRef = useRef({
+    position: new THREE.Vector3(-5, 5, 5),
+    target: new THREE.Vector3(0, 0, 0),
+    isPerspective: true,
+    viewType: VIEW_TYPE.PERSPECTIVE
+  });
+  
+  // State variables
   const [cameraPosition] = useState([-5, 5, 5]);
   const [isPerspective, setIsPerspective] = useState(true);
   const [currentViewType, setCurrentViewType] = useState(VIEW_TYPE.PERSPECTIVE);
@@ -71,154 +68,227 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
       updateViewType(isPerspective ? 'Perspective' : currentViewType.charAt(0).toUpperCase() + currentViewType.slice(1));
     }
   }, [isPerspective, currentViewType, updateViewType]);
-  // Function to handle numpad camera movements
+
+  // Store camera state with target
+  const saveCameraState = useCallback((overrides = {}) => {
+    if (!cameraControlsRef.current) return;
+    
+    const position = new THREE.Vector3();
+    const target = new THREE.Vector3();
+    cameraControlsRef.current.getPosition(position);
+    cameraControlsRef.current.getTarget(target);
+    
+    lastCameraStateRef.current = {
+      position: position.clone(),
+      target: target.clone(),
+      isPerspective: overrides.isPerspective ?? isPerspective,
+      viewType: overrides.viewType ?? currentViewType
+    };
+  }, [isPerspective, currentViewType]);
+
+  // Function to restore camera state with smooth transition
+  const restoreCameraState = useCallback((newIsPerspective = null, immediate = false) => {
+    if (!cameraControlsRef.current) return;
+    
+    const state = lastCameraStateRef.current;
+
+    const usePerspective = newIsPerspective !== null ? newIsPerspective : state.isPerspective;
+    
+    cameraControlsRef.current.setLookAt(
+      state.position.x, state.position.y, state.position.z,
+      state.target.x, state.target.y, state.target.z,
+      !immediate // Enable transition unless immediate is true
+    );
+    
+    if (usePerspective !== isPerspective) {
+      setIsPerspective(usePerspective);
+    }
+    
+    if (state.viewType !== currentViewType) {
+      setCurrentViewType(state.viewType);
+    }
+
+    cameraControlsRef.current.update(0);
+  }, [isPerspective, currentViewType]);
+
+  // Set up controls change handler with state updates
+  useEffect(() => {
+    const controls = cameraControlsRef.current;
+    if (controls) {
+      const handleControlsChange = () => {
+        if (!controls) return;
+
+        // Get current camera direction
+        const position = new THREE.Vector3();
+        const target = new THREE.Vector3();
+        controls.getPosition(position);
+        controls.getTarget(target);
+        const direction = new THREE.Vector3().subVectors(target, position).normalize();
+        
+        // Update view type based on current direction
+        const newViewType = determineViewType(direction);
+        if (newViewType !== currentViewType) {
+          setCurrentViewType(newViewType);
+          // Update side view tracking if needed
+          if (newViewType === VIEW_TYPE.LEFT || newViewType === VIEW_TYPE.RIGHT) {
+            setLastSideView(newViewType);
+          }
+        }
+        
+        // Save the new state
+        saveCameraState({ viewType: newViewType });
+      };
+      
+      controls.addEventListener('control', handleControlsChange);
+      controls.addEventListener('controlstart', handleControlsChange);
+      
+      return () => {
+        controls.removeEventListener('control', handleControlsChange);
+        controls.removeEventListener('controlstart', handleControlsChange);
+      };
+    }
+  }, [saveCameraState, currentViewType]);
+
+  // Function to handle numpad camera movements with improved state management
   const handleNumpadKey = useCallback((key) => {
     if (!cameraControlsRef.current) return;
     
     const controls = cameraControlsRef.current;
     const degToRad = THREE.MathUtils.degToRad;
     
-    switch (key) {      case '1': // Front view (South)
-        controls.reset();
-        controls.setLookAt(0, 1, 10, 0, 1, 0, true); // Look at center from south
-        setIsPerspective(false); // Always switch to orthographic mode
-        setCurrentViewType(VIEW_TYPE.FRONT);
-        // Force immediate update to ensure the view changes properly
-        controls.update(0);
-        break;
-          case '3': // Side view (East/West toggle)
-        controls.reset();
-        if (currentViewType === VIEW_TYPE.LEFT && !isPerspective) {
-          // If currently in west view, switch to east
-          controls.setLookAt(10, 1, 0, 0, 1, 0, true);
-          setLastSideView(VIEW_TYPE.RIGHT);
-          setCurrentViewType(VIEW_TYPE.RIGHT);
-        } else if (currentViewType === VIEW_TYPE.RIGHT && !isPerspective) {
-          // If currently in east view, switch to west
-          controls.setLookAt(-10, 1, 0, 0, 1, 0, true);
-          setLastSideView(VIEW_TYPE.LEFT);
-          setCurrentViewType(VIEW_TYPE.LEFT);
+    switch (key) {
+      case '1': // Front/Back view toggle (South/North)
+        if (currentViewType === VIEW_TYPE.FRONT && !isPerspective) {
+          // Switch from front to back
+          lastCameraStateRef.current = {
+            position: new THREE.Vector3(0, 1, -10),
+            target: new THREE.Vector3(0, 1, 0),
+            isPerspective: false,
+            viewType: VIEW_TYPE.BACK
+          };
+        } else if (currentViewType === VIEW_TYPE.BACK && !isPerspective) {
+          // Switch from back to front
+          lastCameraStateRef.current = {
+            position: new THREE.Vector3(0, 1, 10),
+            target: new THREE.Vector3(0, 1, 0),
+            isPerspective: false,
+            viewType: VIEW_TYPE.FRONT
+          };
         } else {
-          // Not in a side view or in perspective mode, go to the last side view or default (east)
+          // Coming from perspective or another view - go to front view
+          lastCameraStateRef.current = {
+            position: isPerspective ? new THREE.Vector3(0, 2, 15) : new THREE.Vector3(0, 1, 10),
+            target: new THREE.Vector3(0, 1, 0),
+            isPerspective: isPerspective,
+            viewType: VIEW_TYPE.FRONT
+          };
+        }
+        restoreCameraState(isPerspective, false);
+        break;
+
+      case '3': // Side view toggle (East/West)
+        if (currentViewType === VIEW_TYPE.LEFT && !isPerspective) {
+          // Switch from west to east
+          lastCameraStateRef.current = {
+            position: new THREE.Vector3(10, 1, 0),
+            target: new THREE.Vector3(0, 1, 0),
+            isPerspective: false,
+            viewType: VIEW_TYPE.RIGHT
+          };
+          setLastSideView(VIEW_TYPE.RIGHT);
+        } else if (currentViewType === VIEW_TYPE.RIGHT && !isPerspective) {
+          // Switch from east to west
+          lastCameraStateRef.current = {
+            position: new THREE.Vector3(-10, 1, 0),
+            target: new THREE.Vector3(0, 1, 0),
+            isPerspective: false,
+            viewType: VIEW_TYPE.LEFT
+          };
+          setLastSideView(VIEW_TYPE.LEFT);
+        } else {
+          // Coming from perspective or another view
+          const position = isPerspective ? new THREE.Vector3(15, 2, 0) : new THREE.Vector3(10, 1, 0);
           if (lastSideView === VIEW_TYPE.LEFT) {
-            controls.setLookAt(-10, 1, 0, 0, 1, 0, true);
-            setCurrentViewType(VIEW_TYPE.LEFT);
+            lastCameraStateRef.current = {
+              position: position.multiplyScalar(-1), // Flip for left side
+              target: new THREE.Vector3(0, 1, 0),
+              isPerspective: isPerspective,
+              viewType: VIEW_TYPE.LEFT
+            };
           } else {
-            controls.setLookAt(10, 1, 0, 0, 1, 0, true);
-            setCurrentViewType(VIEW_TYPE.RIGHT);
+            lastCameraStateRef.current = {
+              position: position,
+              target: new THREE.Vector3(0, 1, 0),
+              isPerspective: isPerspective,
+              viewType: VIEW_TYPE.RIGHT
+            };
           }
         }
-        setIsPerspective(false); // Always switch to orthographic mode
-        // Force immediate update to ensure the view changes properly
-        controls.update(0);
+        restoreCameraState(isPerspective, false);
         break;
-          case '7': // Top view
-        controls.reset();
-        controls.setLookAt(0, 10, 0, 0, 0, 0, true); // Look at center from above
-        setIsPerspective(false); // Always switch to orthographic mode
-        setCurrentViewType(VIEW_TYPE.TOP);
-        // Force immediate update to ensure the view changes properly
-        controls.update(0);
-        break;case '5': // Toggle perspective/orthographic
-        // Store the current camera position and target
+
+      case '7': // Top view
+        lastCameraStateRef.current = {
+          position: isPerspective ? new THREE.Vector3(0, 15, 0) : new THREE.Vector3(0, 10, 0),
+          target: new THREE.Vector3(0, 0, 0),
+          isPerspective: isPerspective,
+          viewType: VIEW_TYPE.TOP
+        };
+        restoreCameraState(isPerspective, false);
+        break;
+
+      case '5': // Toggle perspective/orthographic only, maintain position
         const position = new THREE.Vector3();
         const target = new THREE.Vector3();
         controls.getPosition(position);
         controls.getTarget(target);
         
-        // Calculate the direction vector and distance for consistent view
-        const direction = new THREE.Vector3().subVectors(target, position).normalize();
-        const distance = position.distanceTo(target);
-        
-        // Toggle the perspective mode
         const newIsPerspective = !isPerspective;
-        setIsPerspective(newIsPerspective);
+        const direction = new THREE.Vector3().subVectors(target, position).normalize();
+        const viewType = determineViewType(direction);
         
-        if (!newIsPerspective) {
-          // Switching to orthographic mode
-          const viewType = determineViewType(direction);
-          setCurrentViewType(viewType);
-          
-          // Update side view tracking if needed
-          if (viewType === VIEW_TYPE.LEFT || viewType === VIEW_TYPE.RIGHT) {
-            setLastSideView(viewType);
-          }
-        } else {
-          // Switching to perspective mode
-          setCurrentViewType(VIEW_TYPE.PERSPECTIVE);
+        // Update the camera state before restoring
+        lastCameraStateRef.current = {
+          position: position.clone(),
+          target: target.clone(),
+          isPerspective: newIsPerspective,
+          viewType: viewType
+        };
+        
+        // Apply the changes through restoreCameraState
+        restoreCameraState(newIsPerspective, false);
+        
+        // Update side view tracking if needed
+        if (viewType === VIEW_TYPE.LEFT || viewType === VIEW_TYPE.RIGHT) {
+          setLastSideView(viewType);
         }
-        
-        // Apply the same view direction and distance after a short delay
-        // This ensures the camera maintains its position after the mode switch
-        setTimeout(() => {
-          // Set camera to the same position and target to maintain the view angle
-          controls.setLookAt(
-            target.x - direction.x * distance,
-            target.y - direction.y * distance,
-            target.z - direction.z * distance,
-            target.x, target.y, target.z,
-            true
-          );
-        }, 10);
         break;
         
-      case '4': // Rotate 15 degrees left (counter-clockwise)
+      case '4': // Rotate left
         controls.rotate(degToRad(-15), 0, true);
         break;
         
-      case '6': // Rotate 15 degrees right (clockwise)
+      case '6': // Rotate right
         controls.rotate(degToRad(15), 0, true);
         break;
-          case '8': // Rotate 15 degrees forward (look down)
+        
+      case '8': // Look down
         controls.rotate(0, degToRad(-15), true);
         break;
         
-      case '2': // Rotate 15 degrees backward (look up)
+      case '2': // Look up
         controls.rotate(0, degToRad(15), true);
-        break;
-      
-      case '9': // Reserved for future use
-        // Functionality removed as requested
         break;
         
       default:
         break;
     }
-  }, [cameraControlsRef, isPerspective, currentViewType, lastSideView]);  // Handle key press for Shift+A and Numpad keys
+    
+    controls.update(0);
+  }, [currentViewType, isPerspective, lastSideView, restoreCameraState]);
+
+  // Handle numpad keys only (Shift+A is handled by the global event listener)
   const handleKeyDown = useCallback((event) => {
-    // Handle Shift+A for context menu
-    if (event.key === 'A' && event.shiftKey) {
-      event.preventDefault();
-      
-      if (canvasContainerRef.current) {
-        // Get the canvas container's bounding rectangle
-        const rect = canvasContainerRef.current.getBoundingClientRect();
-        
-        // Get the current mouse position from the event
-        const mouseX = event.clientX;
-        const mouseY = event.clientY;
-        
-        // Ensure the mouse is over the canvas
-        if (
-          mouseX >= rect.left && 
-          mouseX <= rect.right &&
-          mouseY >= rect.top && 
-          mouseY <= rect.bottom
-        ) {
-          // Show context menu exactly at mouse position
-          setContextMenu({
-            visible: true,
-            position: { 
-              x: mouseX, 
-              y: mouseY 
-            },
-          });
-        }
-      }
-      return;
-    }
-      // Handle numpad keys for camera control
-    // Check for numpad keys or numlock-off number keys with specific codes
     const numpadKeys = {
       'Numpad0': '0',
       'Numpad1': '1',
@@ -238,7 +308,7 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
       const key = numpadKeys[event.code];
       handleNumpadKey(key);
     }
-    // Handle number keys if they're from the numpad (KeyboardEvent.location === 3 means numpad)
+    // Handle number keys if they're from the numpad (KeyboardEvent.location === 3)
     else if (event.location === 3 && event.key >= '0' && event.key <= '9') {
       event.preventDefault();
       handleNumpadKey(event.key);
@@ -254,12 +324,52 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
     }
   }, []);
 
-  // Handle mouse movement to track cursor position on canvas
-  const handleMouseMove = useCallback((event) => {
-    if (canvasContainerRef.current && canvasContainerRef.current.contains(event.target)) {
-      // Store the mouse position for use with Shift+A context menu
-    }
-  }, []);
+  // Add a global mouse position tracker
+  useEffect(() => {
+    let lastKnownMouseX = 0;
+    let lastKnownMouseY = 0;
+    
+    const trackMousePosition = (e) => {
+      lastKnownMouseX = e.clientX;
+      lastKnownMouseY = e.clientY;
+    };
+    
+    // Global tracker for Shift+A menu
+    window.addEventListener('mousemove', trackMousePosition);
+    
+    // Add the Shift+A handler directly to the window
+    const handleShiftA = (e) => {
+      if (e.key === 'A' && e.shiftKey && canvasContainerRef.current) {
+        e.preventDefault();
+        
+        // Get the canvas container's bounding rectangle
+        const rect = canvasContainerRef.current.getBoundingClientRect();
+        
+        // Check if the mouse is over our canvas
+        if (
+          lastKnownMouseX >= rect.left && 
+          lastKnownMouseX <= rect.right &&
+          lastKnownMouseY >= rect.top && 
+          lastKnownMouseY <= rect.bottom
+        ) {
+          setContextMenu({
+            visible: true,
+            position: { 
+              x: lastKnownMouseX, 
+              y: lastKnownMouseY 
+            },
+          });
+        }
+      }
+    };
+    
+    window.addEventListener('keydown', handleShiftA);
+    
+    return () => {
+      window.removeEventListener('mousemove', trackMousePosition);
+      window.removeEventListener('keydown', handleShiftA);
+    };
+  }, [canvasContainerRef]);
 
   // Close context menu
   const handleCloseContextMenu = useCallback(() => {
@@ -277,14 +387,12 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('click', handleCanvasClick);
-    window.addEventListener('mousemove', handleMouseMove);
     
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('click', handleCanvasClick);
-      window.removeEventListener('mousemove', handleMouseMove);
     };
-  }, [handleKeyDown, handleCanvasClick, handleMouseMove]);
+  }, [handleKeyDown, handleCanvasClick]);
 
   // Context menu items
   const menuItems = [
@@ -376,18 +484,19 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
         />
         
         {/* Environment and helpers */}
-        <Environment preset="city" />
+        <Environment preset="sunset" />
         <Grid 
           infiniteGrid 
           cellSize={1}
           cellThickness={0.5}
-          sectionSize={3}
+          sectionSize={10}
           sectionThickness={1}
-          fadeDistance={50}
-          fadeStrength={1.5}
+          fadeDistance={300}
+          fadeStrength={2}
         />
         
-        {/* Camera and Controls */}        {isPerspective ? (
+        {/* Camera and Controls */}        
+        {isPerspective ? (
           <PerspectiveCamera 
             makeDefault 
             position={cameraPosition} 
@@ -423,7 +532,11 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
           position={contextMenu.position} 
           onClose={handleCloseContextMenu}
           items={menuItems}
-        />      )}      {/* Keyboard Hints */}      <div className="keyboard-hint">
+        />
+      )}
+
+      {/* Keyboard Hints */}
+      <div className="keyboard-hint">
         Press <kbd>Shift</kbd>+<kbd>A</kbd> to add objects | Numpad: <kbd>1</kbd>Front <kbd>3</kbd>Side <kbd>7</kbd>Top <kbd>5</kbd>Toggle <kbd>2</kbd><kbd>4</kbd><kbd>6</kbd><kbd>8</kbd>Rotate
       </div>
     </div>

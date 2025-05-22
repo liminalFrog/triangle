@@ -1,6 +1,6 @@
 .floating-panel {
   position: absolute;
-  background-color: rgba(0, 0, 0, 0.75);
+  background-color: rgba(0, 0, 0, 0.8);
   display: flex;
   flex-direction: column;
   border-radius: 0.5rem;
@@ -8,7 +8,7 @@
   z-index: 700; /* Keep at 700 so context menu (z-index: 1000) appears on top */
   height: auto;
   max-height: calc(100vh - 90px); /* Allow space for bottom status bar and top title bar */
-  /* backdrop-filter: blur(1rem); */
+  backdrop-filter: blur(2rem);
 }
 
 .floating-panel.left {
@@ -29,7 +29,7 @@
 
 .panel-header {
   padding: 4px 8px;
-  background-color: rgba(0, 0, 0, 0.733);
+  background-color: rgba(0, 0, 0, 0.5);
   border-bottom: 1px solid #404040;
   display: flex;
   align-items: center;

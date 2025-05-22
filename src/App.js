@@ -194,6 +194,7 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
         {/* Left floating panel (Elements) */}
         <FloatingPanel
           title="Elements"
+          icon="elements-sm"
           position="left"
           topbottom="top"
           defaultWidth={300}
@@ -204,6 +205,7 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
         {/* Right floating panel (Info) */}
         <FloatingPanel
           title="Info"
+          icon="info-sm"
           position="right"
           topbottom="top"
           defaultWidth={200}
