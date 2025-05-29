@@ -1,0 +1,89 @@
+import React from 'react';
+import * as THREE from 'three';
+import { useRef, useEffect } from 'react';
+import { ELEMENT_CATEGORIES } from './constants';
+
+function Wall({ 
+  width = 10, 
+  height = 8, 
+  thickness = 0.5,
+  position = [0, 0, 0],
+  rotation = [0, 0, 0],
+  hasDoor = false,
+  doorWidth = 3,
+  doorHeight = 7,
+  doorPosition = [0, 0, 0],
+  hasWindows = false,
+  windows = [],
+  wallType = "standard"
+}) {
+  const wallRef = useRef();
+  const meshRef = useRef();
+  
+  // Adjust width to account for wall thickness at corners
+  // This ensures walls connect properly at corners
+  const adjustedWidth = width + thickness;
+  
+  // Set up userData for selection and info display
+  useEffect(() => {
+    if (meshRef.current) {
+      // Store wall properties in userData for selection and info display
+      meshRef.current.userData = {
+        isSelectable: true,
+        elementCategory: ELEMENT_CATEGORIES.STRUCTURAL,
+        elementType: 'wall',
+        elementSubtype: wallType,
+        properties: {
+          width,
+          height,
+          thickness,
+          position: [...position],
+          rotation: [...rotation],
+          hasDoor,
+          hasWindows,
+          doorWidth: hasDoor ? doorWidth : null,
+          doorHeight: hasDoor ? doorHeight : null,
+          doorPosition: hasDoor ? [...doorPosition] : null,
+          windows: hasWindows ? windows : []
+        }
+      };
+    }
+  }, [width, height, thickness, position, rotation, wallType, hasDoor, doorWidth, doorHeight, doorPosition, hasWindows, windows]);
+  
+  // Door cutout if needed
+  if (hasDoor) {
+    // Create door cutout shape (3D CSG operations would be better, but for now we'll use a different approach)
+    return (
+      <group position={position} rotation={rotation} ref={wallRef}>
+        {/* Main wall */}
+        <mesh castShadow receiveShadow ref={meshRef}>
+          <boxGeometry args={[adjustedWidth, height, thickness]} />
+          <meshStandardMaterial color="#d0d0d0" />
+        </mesh>
+        
+        {/* Door representation - green box to indicate door location */}
+        <mesh 
+          position={[
+            doorPosition[0], 
+            doorPosition[1] - (height - doorHeight) / 2, 
+            doorPosition[2] - thickness / 2 - 0.01
+          ]}
+        >
+          <boxGeometry args={[doorWidth, doorHeight, thickness * 0.1]} />
+          <meshStandardMaterial color="#00ff00" transparent={true} opacity={0.7} />
+        </mesh>
+      </group>
+    );
+  }
+    // Standard wall without openings
+  return (
+    <group position={position} rotation={rotation} ref={wallRef}>
+      <mesh castShadow receiveShadow ref={meshRef}>
+        <boxGeometry args={[adjustedWidth, height, thickness]} />
+        <meshStandardMaterial color="#d0d0d0" />
+      </mesh>
+    </group>
+  );
+}
+
+export default Wall;

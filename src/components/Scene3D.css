@@ -45,3 +45,14 @@
   margin: 0 2px;
   white-space: nowrap;
 }
+
+.info-panel-container {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  width: 280px;
+  max-height: calc(100% - 30px);
+  overflow-y: auto;
+  pointer-events: all;
+  z-index: 10;
+}
