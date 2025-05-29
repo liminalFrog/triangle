@@ -45,8 +45,6 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
   const raycasterRef = useRef(new THREE.Raycaster());
   const mouseRef = useRef(new THREE.Vector2());
   const lastKeyPressRef = useRef(null);
-  const sceneRef = useRef(null);
-  const cameraRef = useRef(null);
   // State variables
   const [cameraPosition] = useState([-15, 15, 30]);
   const [isPerspective, setIsPerspective] = useState(true);
@@ -284,14 +282,38 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
       default:
         break;
     }
-    
-    controls.update(0);
+      controls.update(0);
   }, [currentViewType, isPerspective, lastSideView, restoreCameraState]);
-  
+
   // Function to handle element selection
   const handleSelectElement = useCallback((object, addToSelection = false) => {
     if (!object) {
+      console.log('Deselecting all objects');
       // Clear selection if no object is provided
+      // First, restore original emissive colors for all currently selected objects
+      selectedObjects.forEach(obj => {
+        if (obj && obj.material) {
+          // Handle both hex values and Color objects for originalEmissive
+          if (obj.userData.originalEmissive !== undefined) {
+            if (typeof obj.userData.originalEmissive === 'number') {
+              console.log(`Restoring emissive (hex): ${obj.userData.originalEmissive}`);
+              obj.material.emissive.setHex(obj.userData.originalEmissive);
+            } else if (obj.userData.originalEmissive.isColor) {
+              console.log(`Restoring emissive (Color): ${obj.userData.originalEmissive.getHex()}`);
+              obj.material.emissive.copy(obj.userData.originalEmissive);
+            } else {
+              // Fallback to black if we can't determine the type
+              console.log('Restoring emissive (fallback): 0x000000');
+              obj.material.emissive.setHex(0x000000);
+            }
+          } else {
+            // No originalEmissive stored, reset to black
+            console.log('Restoring emissive (no original): 0x000000');
+            obj.material.emissive.setHex(0x000000);
+          }
+        }
+      });
+      
       setSelectedObject(null);
       setSelectedObjects([]);
       setSelectionInfo(null);
@@ -477,8 +499,7 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
         }
         return obj?.userData?.isSelectable;
       });
-      
-      // If we found a hoverable object
+        // If we found a hoverable object
       if (firstSelectableObject) {
         let targetObject = firstSelectableObject.object;
         while (targetObject && !targetObject.userData?.isSelectable) {
@@ -487,31 +508,47 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
         
         // Only apply hover effect if the object is not already selected
         const isAlreadySelected = selectedObjects.some(obj => obj.uuid === targetObject.uuid);
-        
-        if (targetObject !== hoveredItem) {
+          if (targetObject !== hoveredItem) {
           // Unhover the previous object
           if (hoveredItem && hoveredItem.material) {
             // Only reset hover effect if the object is not in the selection
             const isPrevSelected = selectedObjects.some(obj => obj.uuid === hoveredItem.uuid);
             if (!isPrevSelected) {
-              hoveredItem.material.emissive.setHex(hoveredItem.userData.originalEmissive || 0);
+              // Handle both hex values and Color objects for originalEmissive
+              if (typeof hoveredItem.userData.originalEmissive === 'number') {
+                hoveredItem.material.emissive.setHex(hoveredItem.userData.originalEmissive);
+              } else if (hoveredItem.userData.originalEmissive?.isColor) {
+                hoveredItem.material.emissive.copy(hoveredItem.userData.originalEmissive);
+              } else {
+                hoveredItem.material.emissive.setHex(0x000000);
+              }
             }
           }
-          
-          // Hover the new object
+            // Hover the new object
           if (targetObject && targetObject.material && !isAlreadySelected) {
-            targetObject.userData.originalEmissive = targetObject.material.emissive.getHex();
+            // Only store originalEmissive if it hasn't been stored yet
+            if (targetObject.userData.originalEmissive === undefined) {
+              targetObject.userData.originalEmissive = targetObject.material.emissive.getHex();
+            }
             targetObject.material.emissive.setHex(SELECTION_COLORS.HOVER);
           }
           
           setHoveredItem(targetObject);
           setHoveredObject(targetObject);
-        }
-      } else if (hoveredItem) {
-        // No hoverable object found, reset the previous one
-        const isHoveredSelected = selectedObjects.some(obj => obj.uuid === hoveredItem.uuid);
-        if (hoveredItem.material && !isHoveredSelected) {
-          hoveredItem.material.emissive.setHex(hoveredItem.userData.originalEmissive || 0);
+        }      } else {
+        // No hoverable object found, clear hover effect from any previously hovered object
+        if (hoveredItem && hoveredItem.material) {
+          const isHoveredSelected = selectedObjects.some(obj => obj.uuid === hoveredItem.uuid);
+          if (!isHoveredSelected) {
+            // Handle both hex values and Color objects for originalEmissive
+            if (typeof hoveredItem.userData.originalEmissive === 'number') {
+              hoveredItem.material.emissive.setHex(hoveredItem.userData.originalEmissive);
+            } else if (hoveredItem.userData.originalEmissive?.isColor) {
+              hoveredItem.material.emissive.copy(hoveredItem.userData.originalEmissive);
+            } else {
+              hoveredItem.material.emissive.setHex(0x000000);
+            }
+          }
         }
         setHoveredItem(null);
         setHoveredObject(null);

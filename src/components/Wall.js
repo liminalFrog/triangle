@@ -1,7 +1,6 @@
 import React from 'react';
-import * as THREE from 'three';
 import { useRef, useEffect } from 'react';
-import { ELEMENT_CATEGORIES } from './constants';
+import { ELEMENT_CATEGORIES, ELEMENT_TYPES, DEFAULT_OBJECT_COLORS } from './constants';
 
 function Wall({ 
   width = 10, 
@@ -23,15 +22,14 @@ function Wall({
   // Adjust width to account for wall thickness at corners
   // This ensures walls connect properly at corners
   const adjustedWidth = width + thickness;
-  
-  // Set up userData for selection and info display
+    // Set up userData for selection and info display
   useEffect(() => {
     if (meshRef.current) {
       // Store wall properties in userData for selection and info display
       meshRef.current.userData = {
         isSelectable: true,
         elementCategory: ELEMENT_CATEGORIES.STRUCTURAL,
-        elementType: 'wall',
+        elementType: ELEMENT_TYPES.WALL,
         elementSubtype: wallType,
         properties: {
           width,
@@ -49,8 +47,7 @@ function Wall({
       };
     }
   }, [width, height, thickness, position, rotation, wallType, hasDoor, doorWidth, doorHeight, doorPosition, hasWindows, windows]);
-  
-  // Door cutout if needed
+    // Door cutout if needed
   if (hasDoor) {
     // Create door cutout shape (3D CSG operations would be better, but for now we'll use a different approach)
     return (
@@ -58,7 +55,7 @@ function Wall({
         {/* Main wall */}
         <mesh castShadow receiveShadow ref={meshRef}>
           <boxGeometry args={[adjustedWidth, height, thickness]} />
-          <meshStandardMaterial color="#d0d0d0" />
+          <meshStandardMaterial color={`#${DEFAULT_OBJECT_COLORS[ELEMENT_TYPES.WALL].toString(16)}`} />
         </mesh>
         
         {/* Door representation - green box to indicate door location */}
@@ -70,17 +67,17 @@ function Wall({
           ]}
         >
           <boxGeometry args={[doorWidth, doorHeight, thickness * 0.1]} />
-          <meshStandardMaterial color="#00ff00" transparent={true} opacity={0.7} />
-        </mesh>
-      </group>
+          <meshStandardMaterial color={`#${DEFAULT_OBJECT_COLORS[ELEMENT_TYPES.DOOR].toString(16)}`} transparent={true} opacity={0.7} />
+        </mesh>      </group>
     );
   }
-    // Standard wall without openings
+  
+  // Standard wall without openings
   return (
     <group position={position} rotation={rotation} ref={wallRef}>
       <mesh castShadow receiveShadow ref={meshRef}>
         <boxGeometry args={[adjustedWidth, height, thickness]} />
-        <meshStandardMaterial color="#d0d0d0" />
+        <meshStandardMaterial color={`#${DEFAULT_OBJECT_COLORS[ELEMENT_TYPES.WALL].toString(16)}`} />
       </mesh>
     </group>
   );
