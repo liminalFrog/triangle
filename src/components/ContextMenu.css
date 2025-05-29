@@ -8,7 +8,7 @@
   max-width: 280px;
   color: #cccccc;
   font-size: 12px;
-  backdrop-filter: blur(4px);
+  backdrop-filter: blur(2rem);
   border: 1px solid #454545;
   overflow: hidden;
   animation: menu-appear 0.15s ease-out;
