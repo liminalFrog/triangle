@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { ELEMENT_CATEGORIES, ELEMENT_TYPES, DEFAULT_OBJECT_COLORS } from './constants';
+import { ELEMENT_CATEGORIES, ELEMENT_TYPES, DEFAULT_MATERIALS } from './constants';
 
 function Slab({ 
   width = 20, 
@@ -39,14 +39,13 @@ function Slab({
       ref={slabRef} 
       position={position} 
       rotation={rotation}
-    >
-      <mesh 
+    >      <mesh 
         ref={meshRef}
         position={[0, thickness/2, 0]} 
         receiveShadow
+        material={DEFAULT_MATERIALS[ELEMENT_TYPES.SLAB].clone()}
       >
         <boxGeometry args={[width, thickness, length]} />
-        <meshStandardMaterial color={`#${DEFAULT_OBJECT_COLORS[ELEMENT_TYPES.SLAB].toString(16)}`} />
       </mesh>
     </group>
   );

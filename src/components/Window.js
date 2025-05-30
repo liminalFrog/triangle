@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { ELEMENT_CATEGORIES, ELEMENT_TYPES, DEFAULT_OBJECT_COLORS } from './constants';
+import { ELEMENT_CATEGORIES, ELEMENT_TYPES, DEFAULT_MATERIALS } from './constants';
 
 function Window({ 
   width = 3, 
@@ -41,18 +41,13 @@ function Window({
       ref={windowRef} 
       position={position} 
       rotation={rotation}
-    >
-      <mesh 
+    >      <mesh 
         ref={meshRef}
         position={[0, 0, 0]} 
         castShadow
+        material={DEFAULT_MATERIALS[ELEMENT_TYPES.WINDOW].clone()}
       >
         <boxGeometry args={[width, height, thickness]} />
-        <meshStandardMaterial 
-          color={`#${DEFAULT_OBJECT_COLORS[ELEMENT_TYPES.WINDOW].toString(16)}`} 
-          transparent={true} 
-          opacity={0.6} 
-        />
       </mesh>
     </group>
   );

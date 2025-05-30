@@ -56,8 +56,8 @@ function createWindow() {
   loadRecentFiles();
 
   mainWindow = new BrowserWindow({
-    width: 1000,
-    height: 600,
+    width: 1200,
+    height: 800,
     frame: false,
     webPreferences: {
       nodeIntegration: true,

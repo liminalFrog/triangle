@@ -41,14 +41,13 @@ function Door({
       ref={doorRef} 
       position={position} 
       rotation={rotation}
-    >
-      <mesh 
+    >      <mesh 
         ref={meshRef}
         position={[0, 0, 0]} 
         castShadow
+        material={DEFAULT_MATERIALS[ELEMENT_TYPES.DOOR].clone()}
       >
         <boxGeometry args={[width, height, thickness]} />
-        <meshStandardMaterial color={`#${DEFAULT_OBJECT_COLORS[ELEMENT_TYPES.DOOR].toString(16)}`} />
       </mesh>
     </group>
   );

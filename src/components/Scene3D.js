@@ -12,7 +12,7 @@ import './Scene3D.css';
 import Building from './Building';
 import ContextMenu from './ContextMenu';
 import InfoPanel from './InfoPanel';
-import { VIEW_TYPE, SELECTION_COLORS } from './constants';
+import { VIEW_TYPE, SELECTION_MATERIALS } from './constants';
 
 // Helper function to determine view type based on camera direction
 const determineViewType = (direction) => {
@@ -33,57 +33,19 @@ const determineViewType = (direction) => {
   return VIEW_TYPE.PERSPECTIVE;
 };
 
-// SelectionManager component - handles raycasting and selection highlighting
-// This component must be used inside a Canvas
-function SelectionManager({ 
-  raycaster, 
-  mouse, 
-  selectedObjects, 
-  multiSelectionActive,
-  setHoveredObject
-}) {
-  const [hoveredItem, setHoveredItem] = useState(null);
-  const { scene, camera } = useThree();
+// Component to handle click events using React Three Fiber's event system
+function ClickHandler({ onElementSelect }) {
+  const { scene, raycaster } = useThree();
   
-  // Helper function to create a material with a specific emissive color
-  const createSelectionMaterial = useCallback((originalMaterial, emissiveColor) => {
-    const newMaterial = originalMaterial.clone();
-    newMaterial.emissive.setHex(emissiveColor);
-    return newMaterial;
-  }, []);
-  
-  // Track when selectedObjects changes to clean up any materials
-  useEffect(() => {
-    // When selection changes, we need to ensure objects not in the new selection
-    // have their materials restored if they were previously selected
-    if (scene) {
-      scene.traverse((obj) => {
-        if (obj.userData?.isSelectable && obj.userData.originalMaterial) {
-          // Check if this object is still in the selection
-          const isStillSelected = selectedObjects.some(selected => selected.uuid === obj.uuid);
-          if (!isStillSelected && obj !== hoveredItem) {
-            // Object was deselected, restore its material
-            console.log(`Cleaning up material for deselected object: ${obj.uuid}`);
-            obj.material = obj.userData.originalMaterial;
-            delete obj.userData.originalMaterial;
-          }
-        }
-      });
-    }
-  }, [selectedObjects, scene, hoveredItem]);
-  
-  // Use the useFrame hook (which must be used inside a Canvas)
-  useFrame(() => {
-    if (!raycaster || !scene || !camera) return;
+  const handleClick = useCallback((event) => {
+    // event.point contains the 3D world coordinates
+    // event.pointer contains the normalized screen coordinates
     
-    // Update the raycaster with the camera and mouse position
-    raycaster.setFromCamera(mouse, camera);
-    
-    // Find intersections with selectable objects
+    // Perform raycasting using the event data
     const intersects = raycaster.intersectObjects(scene.children, true);
     
-    // Find the first intersected object that has userData.isSelectable
-    const firstSelectableObject = intersects.find(intersect => {
+    // Find the first selectable object
+    const firstSelectableIntersect = intersects.find(intersect => {
       let obj = intersect.object;
       while (obj && !obj.userData?.isSelectable) {
         obj = obj.parent;
@@ -91,69 +53,186 @@ function SelectionManager({
       return obj?.userData?.isSelectable;
     });
     
+    // Check if shift key is pressed for multi-selection
+    const addToSelection = event.shiftKey;
+    
+    if (firstSelectableIntersect) {
+      let targetObject = firstSelectableIntersect.object;
+      while (targetObject && !targetObject.userData?.isSelectable) {
+        targetObject = targetObject.parent;
+      }
+      
+      onElementSelect(targetObject, addToSelection);
+    } else if (!addToSelection) {
+      // Clicked on empty space with no shift key, deselect all
+      onElementSelect(null);
+    }
+  }, [scene, raycaster, onElementSelect]);
+  
+  return (
+    <mesh onClick={handleClick} visible={false}>
+      <planeGeometry args={[1000, 1000]} />
+      <meshBasicMaterial transparent opacity={0} />
+    </mesh>
+  );
+}
+
+// SelectionManager component - handles raycasting and selection highlighting
+// This component must be used inside a Canvas
+function SelectionManager({ 
+  selectedObjects, 
+  multiSelectionActive,
+  setHoveredObject
+}) {
+  const [hoveredItem, setHoveredItem] = useState(null);
+  const { scene, camera, invalidate, raycaster, mouse } = useThree();
+  
+  // Store the current state of each object to prevent unnecessary material changes
+  const objectStates = useRef(new Map());
+  
+  // Helper function to get the appropriate material for a state
+  const getMaterialForState = useCallback((state) => {
+    switch (state) {
+      case 'hover':
+        return SELECTION_MATERIALS.HOVER.clone();
+      case 'selected':
+        return SELECTION_MATERIALS.SELECTED.clone();
+      case 'multi_selected':
+        return SELECTION_MATERIALS.MULTI_SELECTED.clone();
+      default:
+        return null;
+    }
+  }, []);    // Helper function to apply a state to an object
+  const applyObjectState = useCallback((obj, newState) => {
+    if (!obj || !obj.material) return;
+    
+    const currentState = objectStates.current.get(obj.uuid);
+    if (currentState === newState) return; // No change needed
+    
+    console.log(`Applying state '${newState}' to object ${obj.uuid} (was: ${currentState || 'none'})`);
+    
+    // Store original material if not already stored and this is the first state change
+    if (!obj.userData.originalMaterial && newState !== 'normal') {
+      obj.userData.originalMaterial = obj.material.clone();
+      console.log(`Stored original material for object ${obj.uuid}:`, obj.userData.originalMaterial.color.getHexString());
+    }
+    
+    // Apply new material based on state
+    if (newState === 'normal') {
+      // Restore original material
+      if (obj.userData.originalMaterial) {
+        obj.material = obj.userData.originalMaterial;
+        delete obj.userData.originalMaterial;
+        objectStates.current.delete(obj.uuid);
+        console.log(`Restored original material for object ${obj.uuid}`);
+      }
+    } else {
+      // Apply state material
+      const stateMaterial = getMaterialForState(newState);
+      if (stateMaterial) {
+        obj.material = stateMaterial;
+        objectStates.current.set(obj.uuid, newState);
+        console.log(`Applied ${newState} material to object ${obj.uuid}, emissive:`, stateMaterial.emissive.getHexString(), 'intensity:', stateMaterial.emissiveIntensity);
+        
+        // Force material to update
+        obj.material.needsUpdate = true;
+      }
+    }
+    
+    // Force scene to re-render
+    invalidate();
+  }, [getMaterialForState, invalidate]);
+  // Clean up materials when selection changes
+  useEffect(() => {
+    if (!scene) return;
+    
+    console.log('SelectionManager useEffect triggered:', {
+      selectedObjects: selectedObjects.length,
+      hoveredItem: hoveredItem?.userData?.elementType || 'none',
+      multiSelectionActive
+    });
+    
+    scene.traverse((obj) => {
+      if (obj.userData?.isSelectable) {
+        const isSelected = selectedObjects.some(selected => selected.uuid === obj.uuid);
+        const isHovered = obj === hoveredItem;
+        
+        // Determine the correct state for this object
+        // Priority: Selected states > Hover state > Normal state
+        let newState = 'normal';
+        if (isSelected) {
+          // Selection takes priority over hover
+          newState = multiSelectionActive ? 'multi_selected' : 'selected';
+        } else if (isHovered) {
+          // Only apply hover if not selected
+          newState = 'hover';
+        }
+        
+        console.log(`Object ${obj.uuid} (${obj.userData.elementType}): selected=${isSelected}, hovered=${isHovered}, newState=${newState}`);
+        applyObjectState(obj, newState);
+      }
+    });  }, [selectedObjects, hoveredItem, multiSelectionActive, scene, applyObjectState]);    // Use the useFrame hook for raycasting and hover detection
+  useFrame(() => {
+    if (!raycaster || !scene || !camera) return;
+    
+    // Debug mouse position
+    console.log(`Mouse position: (${mouse.x.toFixed(3)}, ${mouse.y.toFixed(3)})`);
+    
+    // Update the raycaster with the camera and mouse position
+    raycaster.setFromCamera(mouse, camera);
+    
+    // Find intersections with selectable objects
+    const intersects = raycaster.intersectObjects(scene.children, true);
+    
+    // Debug: Log intersection details
+    console.log(`Found ${intersects.length} intersections`);
+    if (intersects.length > 0) {
+      console.log('Intersections:', intersects.map(i => ({
+        object: i.object.type,
+        uuid: i.object.uuid,
+        userData: i.object.userData,
+        distance: i.distance
+      })));
+    }
+    
+    // Find the first intersected object that has userData.isSelectable
+    const firstSelectableObject = intersects.find(intersect => {
+      let obj = intersect.object;
+      while (obj && !obj.userData?.isSelectable) {
+        obj = obj.parent;
+      }
+      const isSelectable = obj?.userData?.isSelectable;
+      if (isSelectable) {
+        console.log(`Found selectable object: ${obj.userData.elementType} (${obj.uuid})`);
+      }
+      return isSelectable;
+    });
+    
+    let newHoveredItem = null;
+    
     // If we found a hoverable object
     if (firstSelectableObject) {
       let targetObject = firstSelectableObject.object;
       while (targetObject && !targetObject.userData?.isSelectable) {
         targetObject = targetObject.parent;
-      }
-      
-      // Only apply hover effect if the object is not already selected
-      const isAlreadySelected = selectedObjects.some(obj => obj.uuid === targetObject.uuid);
-      
-      if (targetObject !== hoveredItem) {
-        // Restore the previous hovered object
-        if (hoveredItem && hoveredItem.material) {
-          // Only restore if the object is not in the selection
-          const isPrevSelected = selectedObjects.some(obj => obj.uuid === hoveredItem.uuid);
-          if (!isPrevSelected && hoveredItem.userData.originalMaterial) {
-            hoveredItem.material = hoveredItem.userData.originalMaterial;
-            delete hoveredItem.userData.originalMaterial;
-          }
-        }
-        
-        // Apply hover effect to the new object
-        if (targetObject && targetObject.material && !isAlreadySelected) {
-          // Store the original material if not already stored
-          if (!targetObject.userData.originalMaterial) {
-            targetObject.userData.originalMaterial = targetObject.material;
-          }
-          // Create and apply hover material
-          targetObject.material = createSelectionMaterial(targetObject.userData.originalMaterial, SELECTION_COLORS.HOVER);
-        }
-        
-        setHoveredItem(targetObject);
-        setHoveredObject(targetObject);
-      }
+      }      
+      newHoveredItem = targetObject;
+      console.log(`Setting hovered item to: ${newHoveredItem?.userData?.elementType} (${newHoveredItem?.uuid})`);
     } else {
-      // No hoverable object found, clear hover effect from any previously hovered object
-      if (hoveredItem && hoveredItem.material) {
-        const isHoveredSelected = selectedObjects.some(obj => obj.uuid === hoveredItem.uuid);
-        if (!isHoveredSelected && hoveredItem.userData.originalMaterial) {
-          hoveredItem.material = hoveredItem.userData.originalMaterial;
-          delete hoveredItem.userData.originalMaterial;
-        }
-      }
-      setHoveredItem(null);
-      setHoveredObject(null);
+      console.log('No selectable object found, clearing hover');
     }
-      // Update visual feedback for selected objects
-    selectedObjects.forEach(obj => {
-      if (obj && obj.material) {
-        // Store original material if not already stored
-        if (!obj.userData.originalMaterial) {
-          obj.userData.originalMaterial = obj.material;
-        }
-        // Only apply selection material if it's not already applied
-        // Check if the current material is already a selection material
-        const selectionColor = multiSelectionActive ? SELECTION_COLORS.MULTI_SELECTED : SELECTION_COLORS.SELECTED;
-        const currentEmissive = obj.material.emissive?.getHex();
-        
-        if (currentEmissive !== selectionColor) {
-          obj.material = createSelectionMaterial(obj.userData.originalMaterial, selectionColor);
-        }
-      }
-    });
+    
+    // Update hovered item if it changed
+    if (newHoveredItem !== hoveredItem) {
+      console.log('Hover changed:', {
+        from: hoveredItem?.userData?.elementType || 'none',
+        to: newHoveredItem?.userData?.elementType || 'none',
+        fromUuid: hoveredItem?.uuid || 'none',
+        toUuid: newHoveredItem?.uuid || 'none'
+      });
+      setHoveredItem(newHoveredItem);
+      setHoveredObject(newHoveredItem);
+    }
   });
   
   return null; // This component doesn't render anything visually
@@ -166,10 +245,7 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
     position: new THREE.Vector3(-15, 15, 30),
     target: new THREE.Vector3(0, 7, 0),
     isPerspective: true,
-    viewType: VIEW_TYPE.PERSPECTIVE
-  });
-  const raycasterRef = useRef(new THREE.Raycaster());
-  const mouseRef = useRef(new THREE.Vector2());
+    viewType: VIEW_TYPE.PERSPECTIVE  });
   const lastKeyPressRef = useRef(null);
   // State variables
   const [cameraPosition] = useState([-15, 15, 30]);
@@ -409,22 +485,11 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
         break;
     }
       controls.update(0);
-  }, [currentViewType, isPerspective, lastSideView, restoreCameraState]);
-  // Function to handle element selection
+  }, [currentViewType, isPerspective, lastSideView, restoreCameraState]);  // Function to handle element selection
   const handleSelectElement = useCallback((object, addToSelection = false) => {
     if (!object) {
       console.log('Deselecting all objects');
-      // Clear selection if no object is provided
-      // First, restore original materials for all currently selected objects
-      selectedObjects.forEach(obj => {
-        if (obj && obj.userData.originalMaterial) {
-          console.log(`Restoring original material for object: ${obj.uuid}`);
-          obj.material = obj.userData.originalMaterial;
-          // Clear the stored original material
-          delete obj.userData.originalMaterial;
-        }
-      });
-      
+      // Clear selection if no object is provided - SelectionManager will handle material restoration
       setSelectedObject(null);
       setSelectedObjects([]);
       setSelectionInfo(null);
@@ -450,14 +515,7 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
         const existingIndex = updatedSelection.findIndex(obj => obj.uuid === targetObject.uuid);
         
         if (existingIndex >= 0) {
-          // Object already selected, remove it (toggle selection)
-          const objectToRemove = updatedSelection[existingIndex];
-          // Restore original material before removing from selection
-          if (objectToRemove && objectToRemove.userData.originalMaterial) {
-            console.log(`Restoring material for deselected object: ${objectToRemove.uuid}`);
-            objectToRemove.material = objectToRemove.userData.originalMaterial;
-            delete objectToRemove.userData.originalMaterial;
-          }
+          // Object already selected, remove it (toggle selection) - SelectionManager will handle material restoration
           updatedSelection.splice(existingIndex, 1);
         } else {
           // Add the object to selection
@@ -571,64 +629,8 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
         subtype: obj.userData.elementSubtype
       }))
     });
-    
-    console.log(`Selected ${matchingElements.length} elements of type ${targetType}`);
+      console.log(`Selected ${matchingElements.length} elements of type ${targetType}`);
   }, [selectedObject]);
-  
-  // Handle mouse move for hover effects
-  const handleCanvasMouseMove = useCallback((event) => {
-    if (canvasContainerRef.current) {
-      // Calculate mouse position in normalized device coordinates
-      // Use canvasContainerRef instead of event.currentTarget
-      const rect = canvasContainerRef.current.getBoundingClientRect();
-      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;    }  }, []);
-
-  // Handle click to select objects
-  const handleCanvasClick = useCallback((event) => {
-    if (canvasContainerRef.current && canvasContainerRef.current.contains(event.target)) {
-      // Calculate mouse position in normalized device coordinates 
-      // Use canvasContainerRef instead of event.currentTarget
-      const rect = canvasContainerRef.current.getBoundingClientRect();
-      mouseRef.current.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-      mouseRef.current.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
-      
-      // Get the current camera directly
-      const camera = cameraControlsRef.current?.camera;
-      // Get the scene (the top parent, which is always the scene)
-      const scene = camera?.parent;
-      
-      if (!raycasterRef.current || !scene || !camera) return;
-      
-      // Perform raycasting in the click handler instead of useFrame
-      raycasterRef.current.setFromCamera(mouseRef.current, camera);
-      const intersects = raycasterRef.current.intersectObjects(scene.children, true);
-      
-      // Find the first selectable object
-      const firstSelectableIntersect = intersects.find(intersect => {
-        let obj = intersect.object;
-        while (obj && !obj.userData?.isSelectable) {
-          obj = obj.parent;
-        }
-        return obj?.userData?.isSelectable;
-      });
-      
-      // Check if shift key is pressed for multi-selection
-      const addToSelection = event.shiftKey;
-      
-      if (firstSelectableIntersect) {
-        let targetObject = firstSelectableIntersect.object;
-        while (targetObject && !targetObject.userData?.isSelectable) {
-          targetObject = targetObject.parent;
-        }
-        
-        handleSelectElement(targetObject, addToSelection);
-      } else if (!addToSelection) {
-        // Clicked on empty space with no shift key, deselect all
-        handleSelectElement(null);
-      }
-    }
-  }, [handleSelectElement]);
 
   // Handle SS keyboard shortcut to select all same type
   const handleKeyDown = useCallback((event) => {
@@ -737,19 +739,14 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
     // Here you would add the object to the scene
     // For now, just log the action
   }, []);
-
-  // Setup key event listeners
+  // Setup key event listeners only (remove mouse listeners)
   useEffect(() => {
     window.addEventListener('keydown', handleKeyDown);
-    window.addEventListener('click', handleCanvasClick);
-    window.addEventListener('mousemove', handleCanvasMouseMove);
     
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
-      window.removeEventListener('click', handleCanvasClick);
-      window.removeEventListener('mousemove', handleCanvasMouseMove);
     };
-  }, [handleKeyDown, handleCanvasClick, handleCanvasMouseMove]);
+  }, [handleKeyDown]);
 
   // Context menu items
   const menuItems = [
@@ -902,15 +899,15 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
           <planeGeometry args={[100, 100]} />
           <meshStandardMaterial color="#557d55" />
         </mesh>
-        
-        {/* Selection Manager - handles raycasting and object highlighting */}
+          {/* Selection Manager - handles raycasting and object highlighting */}
         <SelectionManager 
-          raycaster={raycasterRef.current}
-          mouse={mouseRef.current}
           selectedObjects={selectedObjects}
           multiSelectionActive={multiSelectionActive}
           setHoveredObject={setHoveredObject}
         />
+
+        {/* Click Handler - handles canvas click events */}
+        <ClickHandler onElementSelect={handleSelectElement} />
       </Canvas>
 
       {/* Info Panel for Selected Elements */}
