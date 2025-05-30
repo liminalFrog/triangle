@@ -44,9 +44,11 @@
   width: 46px;
   height: 38px;
   border-radius: 0 !important;
-  color: #cccccc;
+  color: #cccccc !important;
   background-color: transparent;
   border: none;
+  padding-bottom: 5px !important;
+  padding-top: 0 !important;
 }
 
 .window-control:hover {
