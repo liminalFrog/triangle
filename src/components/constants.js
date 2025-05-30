@@ -58,7 +58,7 @@ export const HIGHLIGHT_MATERIALS = {
     opacity: 0.9
   }),
   SELECTED: new THREE.MeshStandardMaterial({
-    color: 0xffffff,
+    color: 0x0066ff,
     emissive: 0x0066ff,
     emissiveIntensity: 0.4,
     roughness: 0.3,
@@ -67,7 +67,7 @@ export const HIGHLIGHT_MATERIALS = {
     opacity: 0.95
   }),
   MULTI_SELECTED: new THREE.MeshStandardMaterial({
-    color: 0xffffff,
+    color: 0x0033cc,
     emissive: 0x0033cc,
     emissiveIntensity: 0.5,
     roughness: 0.2,

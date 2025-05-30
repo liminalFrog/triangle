@@ -17,7 +17,7 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
     } 
   });
   const [dirty, setDirty] = useState(false);
-  // Note: currentViewType removed since SimpleTestScene manages its own view state
+  const [currentMode, setCurrentMode] = useState('View'); // Track current mode for status bar
 
   // Use useCallback to memoize the saveFile function
   const saveFile = useCallback((filePath) => {
@@ -174,7 +174,10 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
       window.removeEventListener('keydown', handleKeyDown);
     };  }, [saveFile, handleKeyDown]); 
   
-  // Note: updateProjectData and handleViewTypeChange removed since SimpleTestScene doesn't need them
+  // Handle mode change from SimpleTestScene
+  const handleModeChange = useCallback((mode) => {
+    setCurrentMode(mode);
+  }, []);
   
   return (
     <div className="app-container">
@@ -191,13 +194,11 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
           defaultWidth={300}
         >
           <ElementsPanel />
-        </FloatingPanel>
-
-        {/* Main 3D Scene with integrated Properties FloatingPanel */}
-        <SimpleTestScene />
+        </FloatingPanel>        {/* Main 3D Scene with integrated Properties FloatingPanel */}
+        <SimpleTestScene onModeChange={handleModeChange} />
         
-        {/* Status bar at the bottom - SimpleTestScene manages its own view state */}
-        <StatusBar viewType="Perspective" />
+        {/* Status bar at the bottom - now shows current mode */}
+        <StatusBar viewType="Perspective" mode={currentMode} />
       </div>
     </div>
   );

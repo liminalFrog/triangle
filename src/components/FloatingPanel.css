@@ -51,6 +51,34 @@
   flex: 1;
   color: #cccccc;
   font-size: 12px;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 120, 215, 0.4) transparent;
+}
+
+.panel-content::-webkit-scrollbar {
+  width: 6px;
+}
+
+.panel-content::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.panel-content::-webkit-scrollbar-thumb {
+  background-color: #0078d7;
+  border-radius: 3px;
+  opacity: 0.4;
+  transition: all 0.2s ease;
+}
+
+.panel-content::-webkit-scrollbar-thumb:hover {
+  opacity: 0.7;
+  background-color: #106ebe;
+}
+
+.panel-content::-webkit-scrollbar-thumb:active {
+  opacity: 1;
+  background-color: #005a9e;
 }
 
 .panel-resizer {

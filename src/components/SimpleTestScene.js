@@ -167,7 +167,7 @@ function ClickHandler({ onObjectClick, isSelectMode }) {
   return null;
 }
 
-function SimpleTestScene() {
+function SimpleTestScene({ onModeChange }) {
   const [selectedObjects, setSelectedObjects] = useState([]);
   const [hoveredObject, setHoveredObject] = useState(null);
   const [isSelectMode, setIsSelectMode] = useState(false); // Start in View Mode
@@ -216,8 +216,7 @@ function SimpleTestScene() {
   }, [selectedObjects]);
   
   const selectionInfo = generateSelectionInfo();
-  
-  // Handle Tab key to toggle between View Mode and Select Mode
+    // Handle Tab key to toggle between View Mode and Select Mode
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === 'Tab') {
@@ -225,6 +224,11 @@ function SimpleTestScene() {
         setIsSelectMode(prev => {
           const newMode = !prev;
           console.log(`Switched to ${newMode ? 'Select' : 'View'} Mode`);
+          
+          // Notify parent component of mode change
+          if (onModeChange) {
+            onModeChange(newMode ? 'Select' : 'View');
+          }
           
           // Clear selection and hover when switching to View Mode
           if (!newMode) {
@@ -239,7 +243,7 @@ function SimpleTestScene() {
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [onModeChange]);
   
   const handleObjectClick = useCallback((object, isShiftPressed) => {
     if (!object) {
@@ -299,39 +303,7 @@ function SimpleTestScene() {
         <ClickHandler 
           onObjectClick={handleObjectClick} 
           isSelectMode={isSelectMode}
-        />
-      </Canvas>
-      
-      {/* Debug info */}
-      <div style={{
-        position: 'absolute',
-        top: 10,
-        left: 10,
-        color: 'white',
-        background: 'rgba(0,0,0,0.7)',
-        padding: '10px',
-        borderRadius: '5px',
-        zIndex: 1000
-      }}>
-        <div style={{ 
-          fontSize: '14px', 
-          fontWeight: 'bold', 
-          marginBottom: '5px',
-          color: isSelectMode ? '#4CAF50' : '#FF9800'
-        }}>
-          Mode: {isSelectMode ? 'SELECT' : 'VIEW'}
-        </div>
-        <div>Hovered: {hoveredObject?.userData?.name || 'none'}</div>
-        <div>Selected: {selectedObjects.length > 0 ? 
-          selectedObjects.map(obj => obj.userData.name).join(', ') : 
-          'none'}</div>
-        <div style={{ fontSize: '12px', marginTop: '5px' }}>
-          <div>Tab: Toggle View/Select Mode</div>
-          {isSelectMode && (
-            <div>Click to select, Shift+click for multi-selection</div>
-          )}
-        </div>
-      </div>
+        />      </Canvas>
       
       {/* Properties FloatingPanel on the right side */}
       <FloatingPanel
