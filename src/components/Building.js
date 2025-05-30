@@ -2,6 +2,8 @@ import React from 'react';
 import { useRef } from 'react';
 import * as THREE from 'three';
 import Wall from './Wall';
+import Slab from './Slab';
+import { ELEMENT_TYPES, DEFAULT_OBJECT_COLORS } from './constants';
 
 // Constants for architectural measurements
 // Using standard architectural dimensions in feet
@@ -14,23 +16,22 @@ const ROOF_SLOPE = 4/12; // 4:12 pitch
 const DOOR_WIDTH = 3; // 3 feet
 const DOOR_HEIGHT = 7; // 7 feet
 
-function Building({ position = [0, 0, 0] }) {
-  const groupRef = useRef();
+function Building({ position = [0, 0, 0] }) {  const groupRef = useRef();
   
-  // Calculate roof peak height based on building width and slope
+  // Calculate roof rise based on building width and slope
   const roofRise = (BUILDING_WIDTH / 2) * ROOF_SLOPE;
-  const peakHeight = EAVE_HEIGHT + roofRise;
-
   return (
-    <group ref={groupRef} position={position}>      {/* Slab/Foundation */}
-      <mesh 
-        position={[0, INCH * 6, 0]} 
-        receiveShadow
-      >
-        <boxGeometry args={[BUILDING_WIDTH + WALL_THICKNESS, INCH * 12, BUILDING_LENGTH + WALL_THICKNESS]} />
-        <meshStandardMaterial color="#888888" />
-      </mesh>
-        {/* Gabled Roof */}
+    <group ref={groupRef} position={position}>
+      {/* Slab/Foundation - positioned at ground level (y=0) */}
+      <Slab 
+        width={BUILDING_WIDTH + WALL_THICKNESS}
+        length={BUILDING_LENGTH + WALL_THICKNESS}
+        thickness={INCH * 12}
+        position={[0, 0, 0]}
+        slabType="concrete"
+      />
+      
+      {/* Gabled Roof */}
       <mesh 
         position={[0, EAVE_HEIGHT, 0]} 
         rotation={[0, Math.PI/2, 0]}
@@ -48,11 +49,10 @@ function Building({ position = [0, 0, 0] }) {
               .lineTo(-BUILDING_LENGTH/2, 0),
             {
               depth: BUILDING_WIDTH,
-              bevelEnabled: false
-            }
+              bevelEnabled: false            }
           ]}
         >
-          <meshStandardMaterial color="#8b4513" side={THREE.DoubleSide} />
+          <meshStandardMaterial color={`#${DEFAULT_OBJECT_COLORS[ELEMENT_TYPES.ROOF].toString(16)}`} side={THREE.DoubleSide} />
         </extrudeGeometry>
       </mesh>      {/* North Wall (back) */}
       <Wall 

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import TitleBar from './components/TitleBar';
-import Scene3D from './components/Scene3D';
+import SimpleTestScene from './components/SimpleTestScene';
 import StatusBar from './components/StatusBar';
 import FloatingPanel from './components/FloatingPanel';
 import ElementsPanel from './components/ElementsPanel';
@@ -212,12 +212,7 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
         >
           <InfoPanel />
         </FloatingPanel>
-        
-        <Scene3D 
-          projectData={projectData} 
-          updateProjectData={updateProjectData}
-          updateViewType={handleViewTypeChange}
-        />
+          <SimpleTestScene />
         
         {/* Status bar at the bottom */}
         <StatusBar viewType={currentViewType} />
