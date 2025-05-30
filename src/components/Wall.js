@@ -1,6 +1,6 @@
 import React from 'react';
 import { useRef, useEffect } from 'react';
-import { ELEMENT_CATEGORIES, ELEMENT_TYPES, DEFAULT_OBJECT_COLORS } from './constants';
+import { ELEMENT_CATEGORIES, ELEMENT_TYPES, DEFAULT_MATERIALS } from './constants';
 
 function Wall({ 
   width = 10, 
@@ -51,11 +51,10 @@ function Wall({
   if (hasDoor) {
     // Create door cutout shape (3D CSG operations would be better, but for now we'll use a different approach)
     return (
-      <group position={position} rotation={rotation} ref={wallRef}>
-        {/* Main wall */}
+      <group position={position} rotation={rotation} ref={wallRef}>        {/* Main wall */}
         <mesh castShadow receiveShadow ref={meshRef}>
           <boxGeometry args={[adjustedWidth, height, thickness]} />
-          <meshStandardMaterial color={`#${DEFAULT_OBJECT_COLORS[ELEMENT_TYPES.WALL].toString(16)}`} />
+          <primitive object={DEFAULT_MATERIALS[ELEMENT_TYPES.WALL].clone()} />
         </mesh>
         
         {/* Door representation - green box to indicate door location */}
@@ -67,17 +66,16 @@ function Wall({
           ]}
         >
           <boxGeometry args={[doorWidth, doorHeight, thickness * 0.1]} />
-          <meshStandardMaterial color={`#${DEFAULT_OBJECT_COLORS[ELEMENT_TYPES.DOOR].toString(16)}`} transparent={true} opacity={0.7} />
-        </mesh>      </group>
+          <primitive object={DEFAULT_MATERIALS[ELEMENT_TYPES.DOOR].clone()} attach="material" />
+        </mesh></group>
     );
   }
-  
-  // Standard wall without openings
+    // Standard wall without openings
   return (
     <group position={position} rotation={rotation} ref={wallRef}>
       <mesh castShadow receiveShadow ref={meshRef}>
         <boxGeometry args={[adjustedWidth, height, thickness]} />
-        <meshStandardMaterial color={`#${DEFAULT_OBJECT_COLORS[ELEMENT_TYPES.WALL].toString(16)}`} />
+        <primitive object={DEFAULT_MATERIALS[ELEMENT_TYPES.WALL].clone()} />
       </mesh>
     </group>
   );

@@ -1,5 +1,5 @@
 import React, { useRef, useEffect } from 'react';
-import { ELEMENT_CATEGORIES, ELEMENT_TYPES, DEFAULT_OBJECT_COLORS } from './constants';
+import { ELEMENT_CATEGORIES, ELEMENT_TYPES, DEFAULT_MATERIALS } from './constants';
 
 function Door({ 
   width = 3, 
