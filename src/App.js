@@ -3,9 +3,8 @@ import './App.css';
 import TitleBar from './components/TitleBar';
 import SimpleTestScene from './components/SimpleTestScene';
 import StatusBar from './components/StatusBar';
-import FloatingPanel from './components/FloatingPanel';
-import ElementsPanel from './components/ElementsPanel';
-import InfoPanel from './components/InfoPanel';
+// import FloatingPanel from './components/FloatingPanel';
+// import ElementsPanel from './components/ElementsPanel';
 
 const electron = window.electron;
 const ipcRenderer = electron ? electron.ipcRenderer : null;
@@ -18,7 +17,7 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
     } 
   });
   const [dirty, setDirty] = useState(false);
-  const [currentViewType, setCurrentViewType] = useState('Perspective');
+  // Note: currentViewType removed since SimpleTestScene manages its own view state
 
   // Use useCallback to memoize the saveFile function
   const saveFile = useCallback((filePath) => {
@@ -173,26 +172,18 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
       
       // Remove event listener for keyboard shortcuts
       window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [saveFile, handleKeyDown]); 
-  const updateProjectData = (newData) => {
-    setProjectData(newData);
-    setDirty(true);
-  };
-
-  const handleViewTypeChange = useCallback((viewType) => {
-    setCurrentViewType(viewType);
-  }, []);
-
+    };  }, [saveFile, handleKeyDown]); 
+  
+  // Note: updateProjectData and handleViewTypeChange removed since SimpleTestScene doesn't need them
+  
   return (
     <div className="app-container">
       <TitleBar 
         currentFile={currentFile}
         dirty={dirty}
-      />
-      <div className="content-area">
-        {/* Left floating panel (Elements) */}
-        <FloatingPanel
+      />      <div className="content-area">
+        {/* Left floating panel (Elements) - Commented out since SimpleTestScene has integrated InfoPanel */}
+        {/* <FloatingPanel
           title="Elements"
           icon="elements-sm"
           position="left"
@@ -200,22 +191,11 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
           defaultWidth={300}
         >
           <ElementsPanel />
-        </FloatingPanel>
+        </FloatingPanel> */}        {/* Main 3D Scene with integrated InfoPanel */}
+        <SimpleTestScene />
         
-        {/* Right floating panel (Info) */}
-        <FloatingPanel
-          title="Info"
-          icon="info-sm"
-          position="right"
-          topbottom="top"
-          defaultWidth={200}
-        >
-          <InfoPanel />
-        </FloatingPanel>
-          <SimpleTestScene />
-        
-        {/* Status bar at the bottom */}
-        <StatusBar viewType={currentViewType} />
+        {/* Status bar at the bottom - SimpleTestScene manages its own view state */}
+        <StatusBar viewType="Perspective" />
       </div>
     </div>
   );

@@ -5,6 +5,7 @@ import {
   OrbitControls
 } from '@react-three/drei';
 import * as THREE from 'three';
+import InfoPanel from './InfoPanel';
 
 // Simple hover and selection manager with multi-selection support
 function TestSelectionManager({ selectedObjects, setSelectedObjects, setHoveredObject, isSelectMode }) {
@@ -72,11 +73,37 @@ function TestSelectionManager({ selectedObjects, setSelectedObjects, setHoveredO
 function TestCube({ position, name }) {
   const meshRef = useRef();
   
+  // Add more comprehensive properties for testing the InfoPanel
+  const cubeProperties = {
+    name: name,
+    position: position,
+    dimensions: [2, 2, 2],
+    volume: 8.0,
+    surfaceArea: 24.0,
+    color: '#0077ff',
+    material: 'Standard Material',
+    castShadow: false,
+    receiveShadow: false,
+    mass: 1.5,
+    density: 0.1875,
+    temperature: 20.0,
+    status: 'Active',
+    created: new Date().toISOString().split('T')[0],
+    lastModified: new Date().toLocaleTimeString()
+  };
+  
   return (
     <mesh 
       ref={meshRef}
       position={position}
-      userData={{ isTestObject: true, name }}
+      userData={{ 
+        isTestObject: true, 
+        name,
+        elementCategory: 'Test Objects',
+        elementType: 'Geometric Primitive',
+        elementSubtype: 'Cube',
+        properties: cubeProperties
+      }}
     >
       <boxGeometry args={[2, 2, 2]} />
       <meshStandardMaterial color={0x0077ff} />
@@ -140,6 +167,51 @@ function SimpleTestScene() {
   const [hoveredObject, setHoveredObject] = useState(null);
   const [isSelectMode, setIsSelectMode] = useState(false); // Start in View Mode
   
+  // Generate selection info for InfoPanel
+  const generateSelectionInfo = useCallback(() => {
+    if (selectedObjects.length === 0) {
+      return null;
+    }
+    
+    if (selectedObjects.length === 1) {
+      // Single selection
+      const obj = selectedObjects[0];
+      const userData = obj.userData;
+      
+      return {
+        category: userData.elementCategory || 'Unknown',
+        type: userData.elementType || 'Unknown',
+        subtype: userData.elementSubtype || 'Unknown',
+        properties: userData.properties || {}
+      };
+    }
+    
+    // Multi-selection
+    const firstObj = selectedObjects[0];
+    const userData = firstObj.userData;
+    
+    // Check if all selected objects are of the same type
+    const allSameCategory = selectedObjects.every(obj => 
+      obj.userData.elementCategory === userData.elementCategory
+    );
+    const allSameType = selectedObjects.every(obj => 
+      obj.userData.elementType === userData.elementType
+    );
+    const allSameSubtype = selectedObjects.every(obj => 
+      obj.userData.elementSubtype === userData.elementSubtype
+    );
+    
+    return {
+      multiSelection: true,
+      count: selectedObjects.length,
+      category: allSameCategory ? userData.elementCategory : 'Mixed',
+      type: allSameType ? userData.elementType : 'Mixed',
+      subtype: allSameSubtype ? userData.elementSubtype : 'Mixed'
+    };
+  }, [selectedObjects]);
+  
+  const selectionInfo = generateSelectionInfo();
+  
   // Handle Tab key to toggle between View Mode and Select Mode
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -190,70 +262,77 @@ function SimpleTestScene() {
       setSelectedObjects([object]);
     }
   }, []);
-  
-  return (
-    <div style={{ width: '100vw', height: '100vh' }}>
-      <Canvas>
-        <color attach="background" args={['#1e1e1e']} />
+    return (
+    <div style={{ width: '100vw', height: '100vh', display: 'flex' }}>
+      <div style={{ flex: 1 }}>
+        <Canvas>
+          <color attach="background" args={['#1e1e1e']} />
+          
+          {/* Lighting */}
+          <ambientLight intensity={0.6} />
+          <directionalLight position={[10, 10, 5]} intensity={1} />
+          
+          {/* Camera */}
+          <PerspectiveCamera makeDefault position={[5, 5, 5]} />
+          <OrbitControls />
+          
+          {/* Test objects */}
+          <TestCube position={[0, 0, 0]} name="Cube1" />
+          <TestCube position={[4, 0, 0]} name="Cube2" />
+          <TestCube position={[0, 4, 0]} name="Cube3" />
+          
+          {/* Ground */}
+          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]}>
+            <planeGeometry args={[20, 20]} />
+            <meshStandardMaterial color="#333" />
+          </mesh>
+            {/* Selection and click handling */}
+          <TestSelectionManager 
+            selectedObjects={selectedObjects}
+            setSelectedObjects={setSelectedObjects}
+            setHoveredObject={setHoveredObject}
+            isSelectMode={isSelectMode}
+          />
+          <ClickHandler 
+            onObjectClick={handleObjectClick} 
+            isSelectMode={isSelectMode}
+          />
+        </Canvas>
         
-        {/* Lighting */}
-        <ambientLight intensity={0.6} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        
-        {/* Camera */}
-        <PerspectiveCamera makeDefault position={[5, 5, 5]} />
-        <OrbitControls />
-        
-        {/* Test objects */}
-        <TestCube position={[0, 0, 0]} name="Cube1" />
-        <TestCube position={[4, 0, 0]} name="Cube2" />
-        <TestCube position={[0, 4, 0]} name="Cube3" />
-        
-        {/* Ground */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]}>
-          <planeGeometry args={[20, 20]} />
-          <meshStandardMaterial color="#333" />
-        </mesh>
-          {/* Selection and click handling */}
-        <TestSelectionManager 
-          selectedObjects={selectedObjects}
-          setSelectedObjects={setSelectedObjects}
-          setHoveredObject={setHoveredObject}
-          isSelectMode={isSelectMode}
-        />
-        <ClickHandler 
-          onObjectClick={handleObjectClick} 
-          isSelectMode={isSelectMode}
-        />
-      </Canvas>
         {/* Debug info */}
-      <div style={{
-        position: 'absolute',
-        top: 10,
-        left: 10,
-        color: 'white',
-        background: 'rgba(0,0,0,0.7)',
-        padding: '10px',
-        borderRadius: '5px'
-      }}>
-        <div style={{ 
-          fontSize: '14px', 
-          fontWeight: 'bold', 
-          marginBottom: '5px',
-          color: isSelectMode ? '#4CAF50' : '#FF9800'
+        <div style={{
+          position: 'absolute',
+          top: 10,
+          left: 10,
+          color: 'white',
+          background: 'rgba(0,0,0,0.7)',
+          padding: '10px',
+          borderRadius: '5px'
         }}>
-          Mode: {isSelectMode ? 'SELECT' : 'VIEW'}
+          <div style={{ 
+            fontSize: '14px', 
+            fontWeight: 'bold', 
+            marginBottom: '5px',
+            color: isSelectMode ? '#4CAF50' : '#FF9800'
+          }}>
+            Mode: {isSelectMode ? 'SELECT' : 'VIEW'}
+          </div>
+          <div>Hovered: {hoveredObject?.userData?.name || 'none'}</div>
+          <div>Selected: {selectedObjects.length > 0 ? 
+            selectedObjects.map(obj => obj.userData.name).join(', ') : 
+            'none'}</div>
+          <div style={{ fontSize: '12px', marginTop: '5px' }}>
+            <div>Tab: Toggle View/Select Mode</div>
+            {isSelectMode && (
+              <div>Click to select, Shift+click for multi-selection</div>
+            )}
+          </div>
         </div>
-        <div>Hovered: {hoveredObject?.userData?.name || 'none'}</div>
-        <div>Selected: {selectedObjects.length > 0 ? 
-          selectedObjects.map(obj => obj.userData.name).join(', ') : 
-          'none'}</div>
-        <div style={{ fontSize: '12px', marginTop: '5px' }}>
-          <div>Tab: Toggle View/Select Mode</div>
-          {isSelectMode && (
-            <div>Click to select, Shift+click for multi-selection</div>
-          )}
-        </div>
+      </div>
+      
+      {/* InfoPanel on the right side */}
+      <div style={{ width: '300px', height: '100vh', overflow: 'auto' }}>
+        <InfoPanel selectionInfo={selectionInfo} />
       </div>
     </div>
   );
