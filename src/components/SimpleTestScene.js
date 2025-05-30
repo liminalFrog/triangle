@@ -86,28 +86,53 @@ function TestCube({ position, name }) {
 
 // Click handler with multi-selection support
 function ClickHandler({ onObjectClick, isSelectMode }) {
-  const { scene, raycaster } = useThree();
+  const { scene, raycaster, camera, mouse } = useThree();
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [mouseDownPos, setMouseDownPos] = useState({ x: 0, y: 0 });
   
-  const handleClick = useCallback((event) => {
-    // Only handle clicks in Select Mode
+  const handlePointerDown = useCallback((event) => {
     if (!isSelectMode) return;
     
-    const intersects = raycaster.intersectObjects(scene.children, true);
-    const testObject = intersects.find(intersect => 
-      intersect.object.userData?.isTestObject
-    )?.object;
-    
-    const isShiftPressed = event.shiftKey;
-    console.log('Clicked:', testObject?.userData?.name || 'background', 'Shift:', isShiftPressed);
-    onObjectClick(testObject || null, isShiftPressed);
-  }, [scene, raycaster, onObjectClick, isSelectMode]);
+    setIsMouseDown(true);
+    setMouseDownPos({ x: event.clientX, y: event.clientY });
+  }, [isSelectMode]);
   
-  return (
-    <mesh onClick={handleClick} visible={false}>
-      <planeGeometry args={[100, 100]} />
-      <meshBasicMaterial transparent opacity={0} />
-    </mesh>
-  );
+  const handlePointerUp = useCallback((event) => {
+    if (!isSelectMode || !isMouseDown) return;
+    
+    // Check if this was a click (not a drag)
+    const deltaX = Math.abs(event.clientX - mouseDownPos.x);
+    const deltaY = Math.abs(event.clientY - mouseDownPos.y);
+    const isClick = deltaX < 5 && deltaY < 5; // 5px tolerance for click vs drag
+    
+    if (isClick) {
+      // Manually perform raycasting using current mouse position
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
+      const testObject = intersects.find(intersect => 
+        intersect.object.userData?.isTestObject
+      )?.object;
+      
+      const isShiftPressed = event.shiftKey;
+      console.log('Clicked:', testObject?.userData?.name || 'background', 'Shift:', isShiftPressed);
+      onObjectClick(testObject || null, isShiftPressed);
+    }
+    
+    setIsMouseDown(false);
+  }, [scene, raycaster, camera, mouse, onObjectClick, isSelectMode, isMouseDown, mouseDownPos]);
+  
+  // Set up global event listeners
+  useEffect(() => {
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointerup', handlePointerUp);
+    
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [handlePointerDown, handlePointerUp]);
+  
+  return null;
 }
 
 function SimpleTestScene() {
