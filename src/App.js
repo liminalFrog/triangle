@@ -3,8 +3,8 @@ import './App.css';
 import TitleBar from './components/TitleBar';
 import SimpleTestScene from './components/SimpleTestScene';
 import StatusBar from './components/StatusBar';
-// import FloatingPanel from './components/FloatingPanel';
-// import ElementsPanel from './components/ElementsPanel';
+import FloatingPanel from './components/FloatingPanel';
+import ElementsPanel from './components/ElementsPanel';
 
 const electron = window.electron;
 const ipcRenderer = electron ? electron.ipcRenderer : null;
@@ -182,8 +182,8 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
         currentFile={currentFile}
         dirty={dirty}
       />      <div className="content-area">
-        {/* Left floating panel (Elements) - Commented out since SimpleTestScene has integrated InfoPanel */}
-        {/* <FloatingPanel
+        {/* Left floating panel (Elements) */}
+        <FloatingPanel
           title="Elements"
           icon="elements-sm"
           position="left"
@@ -191,7 +191,9 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
           defaultWidth={300}
         >
           <ElementsPanel />
-        </FloatingPanel> */}        {/* Main 3D Scene with integrated InfoPanel */}
+        </FloatingPanel>
+
+        {/* Main 3D Scene with integrated Properties FloatingPanel */}
         <SimpleTestScene />
         
         {/* Status bar at the bottom - SimpleTestScene manages its own view state */}

@@ -6,6 +6,8 @@ import {
 } from '@react-three/drei';
 import * as THREE from 'three';
 import InfoPanel from './InfoPanel';
+import FloatingPanel from './FloatingPanel';
+import { HIGHLIGHT_MATERIALS } from './constants';
 
 // Simple hover and selection manager with multi-selection support
 function TestSelectionManager({ selectedObjects, setSelectedObjects, setHoveredObject, isSelectMode }) {
@@ -48,7 +50,7 @@ function TestSelectionManager({ selectedObjects, setSelectedObjects, setHoveredO
       setHoveredObject(testObject || null);
     }
   });
-    // Apply materials based on state
+  // Apply materials based on state
   useFrame(() => {
     scene.traverse((obj) => {
       if (obj.userData?.isTestObject) {
@@ -56,11 +58,14 @@ function TestSelectionManager({ selectedObjects, setSelectedObjects, setHoveredO
         const isHovered = isSelectMode && hoveredItem === obj; // Only show hover in Select Mode
         
         if (isSelected) {
-          obj.material.color.setHex(0x00ff00); // Green for selected
+          // Use your new HIGHLIGHT_MATERIALS for selected state
+          obj.material = HIGHLIGHT_MATERIALS.SELECTED.clone();
         } else if (isHovered) {
-          obj.material.color.setHex(0xff0000); // Red for hovered
+          // Use your new HIGHLIGHT_MATERIALS for hover state
+          obj.material = HIGHLIGHT_MATERIALS.HOVER.clone();
         } else {
-          obj.material.color.setHex(0x0077ff); // Blue for normal
+          // Use default blue material for normal state
+          obj.material = new THREE.MeshStandardMaterial({ color: 0x0077ff });
         }
       }
     });
@@ -261,79 +266,83 @@ function SimpleTestScene() {
       // Single selection mode: select only this object
       setSelectedObjects([object]);
     }
-  }, []);
-    return (
-    <div style={{ width: '100vw', height: '100vh', display: 'flex' }}>
-      <div style={{ flex: 1 }}>
-        <Canvas>
-          <color attach="background" args={['#1e1e1e']} />
-          
-          {/* Lighting */}
-          <ambientLight intensity={0.6} />
-          <directionalLight position={[10, 10, 5]} intensity={1} />
-          
-          {/* Camera */}
-          <PerspectiveCamera makeDefault position={[5, 5, 5]} />
-          <OrbitControls />
-          
-          {/* Test objects */}
-          <TestCube position={[0, 0, 0]} name="Cube1" />
-          <TestCube position={[4, 0, 0]} name="Cube2" />
-          <TestCube position={[0, 4, 0]} name="Cube3" />
-          
-          {/* Ground */}
-          <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]}>
-            <planeGeometry args={[20, 20]} />
-            <meshStandardMaterial color="#333" />
-          </mesh>
-            {/* Selection and click handling */}
-          <TestSelectionManager 
-            selectedObjects={selectedObjects}
-            setSelectedObjects={setSelectedObjects}
-            setHoveredObject={setHoveredObject}
-            isSelectMode={isSelectMode}
-          />
-          <ClickHandler 
-            onObjectClick={handleObjectClick} 
-            isSelectMode={isSelectMode}
-          />
-        </Canvas>
+  }, []);    return (
+    <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>
+      <Canvas>
+        <color attach="background" args={['#1e1e1e']} />
         
-        {/* Debug info */}
-        <div style={{
-          position: 'absolute',
-          top: 10,
-          left: 10,
-          color: 'white',
-          background: 'rgba(0,0,0,0.7)',
-          padding: '10px',
-          borderRadius: '5px'
+        {/* Lighting */}
+        <ambientLight intensity={0.6} />
+        <directionalLight position={[10, 10, 5]} intensity={1} />
+        
+        {/* Camera */}
+        <PerspectiveCamera makeDefault position={[5, 5, 5]} />
+        <OrbitControls />
+        
+        {/* Test objects */}
+        <TestCube position={[0, 0, 0]} name="Cube1" />
+        <TestCube position={[4, 0, 0]} name="Cube2" />
+        <TestCube position={[0, 4, 0]} name="Cube3" />
+        
+        {/* Ground */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]}>
+          <planeGeometry args={[20, 20]} />
+          <meshStandardMaterial color="#333" />
+        </mesh>
+          {/* Selection and click handling */}
+        <TestSelectionManager 
+          selectedObjects={selectedObjects}
+          setSelectedObjects={setSelectedObjects}
+          setHoveredObject={setHoveredObject}
+          isSelectMode={isSelectMode}
+        />
+        <ClickHandler 
+          onObjectClick={handleObjectClick} 
+          isSelectMode={isSelectMode}
+        />
+      </Canvas>
+      
+      {/* Debug info */}
+      <div style={{
+        position: 'absolute',
+        top: 10,
+        left: 10,
+        color: 'white',
+        background: 'rgba(0,0,0,0.7)',
+        padding: '10px',
+        borderRadius: '5px',
+        zIndex: 1000
+      }}>
+        <div style={{ 
+          fontSize: '14px', 
+          fontWeight: 'bold', 
+          marginBottom: '5px',
+          color: isSelectMode ? '#4CAF50' : '#FF9800'
         }}>
-          <div style={{ 
-            fontSize: '14px', 
-            fontWeight: 'bold', 
-            marginBottom: '5px',
-            color: isSelectMode ? '#4CAF50' : '#FF9800'
-          }}>
-            Mode: {isSelectMode ? 'SELECT' : 'VIEW'}
-          </div>
-          <div>Hovered: {hoveredObject?.userData?.name || 'none'}</div>
-          <div>Selected: {selectedObjects.length > 0 ? 
-            selectedObjects.map(obj => obj.userData.name).join(', ') : 
-            'none'}</div>
-          <div style={{ fontSize: '12px', marginTop: '5px' }}>
-            <div>Tab: Toggle View/Select Mode</div>
-            {isSelectMode && (
-              <div>Click to select, Shift+click for multi-selection</div>
-            )}
-          </div>
+          Mode: {isSelectMode ? 'SELECT' : 'VIEW'}
+        </div>
+        <div>Hovered: {hoveredObject?.userData?.name || 'none'}</div>
+        <div>Selected: {selectedObjects.length > 0 ? 
+          selectedObjects.map(obj => obj.userData.name).join(', ') : 
+          'none'}</div>
+        <div style={{ fontSize: '12px', marginTop: '5px' }}>
+          <div>Tab: Toggle View/Select Mode</div>
+          {isSelectMode && (
+            <div>Click to select, Shift+click for multi-selection</div>
+          )}
         </div>
       </div>
       
-      {/* InfoPanel on the right side */}
-      <div style={{ width: '300px', height: '100vh', overflow: 'auto' }}>
+      {/* Properties FloatingPanel on the right side */}
+      <FloatingPanel
+        title="Properties"
+        icon="info-sm"
+        position="right"
+        topbottom="top"
+        defaultWidth={320}
+      >
         <InfoPanel selectionInfo={selectionInfo} />
-      </div>
+      </FloatingPanel>
     </div>
   );
 }

@@ -47,18 +47,10 @@ export const SELECTION_STATES = {
   MULTI_SELECTED: 'multi-selected'
 };
 
-// Selection colors for visual feedback
-export const SELECTION_COLORS = {
-  HOVER: 0x00ccff,   // Bright blue for hover
-  SELECTED: 0x0066ff, // Deeper blue for selection
-  MULTI_SELECTED: 0x0033cc // Dark blue for multi-selection
-};
-
-// Selection materials for different states
-export const SELECTION_MATERIALS = {
+export const HIGHLIGHT_MATERIALS = {
   HOVER: new THREE.MeshStandardMaterial({
-    color: 0xffffff,
-    emissive: SELECTION_COLORS.HOVER,
+    color: 0x00ccff,
+    emissive: 0x00ccff,
     emissiveIntensity: 0.3,
     roughness: 0.4,
     metalness: 0.1,
@@ -67,7 +59,7 @@ export const SELECTION_MATERIALS = {
   }),
   SELECTED: new THREE.MeshStandardMaterial({
     color: 0xffffff,
-    emissive: SELECTION_COLORS.SELECTED,
+    emissive: 0x0066ff,
     emissiveIntensity: 0.4,
     roughness: 0.3,
     metalness: 0.2,
@@ -76,12 +68,21 @@ export const SELECTION_MATERIALS = {
   }),
   MULTI_SELECTED: new THREE.MeshStandardMaterial({
     color: 0xffffff,
-    emissive: SELECTION_COLORS.MULTI_SELECTED,
+    emissive: 0x0033cc,
     emissiveIntensity: 0.5,
     roughness: 0.2,
     metalness: 0.3,
     transparent: true,
     opacity: 1.0
+  }),
+  HAS_ERROR: new THREE.MeshStandardMaterial({
+    color: 0xff0000,
+    emissive: 0xff0000,
+    emissiveIntensity: 0.5,
+    roughness: 0.5,
+    metalness: 0.1,
+    transparent: true,
+    opacity: 0.8
   })
 };
 
