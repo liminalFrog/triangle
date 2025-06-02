@@ -15,9 +15,9 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
     scene: {
       objects: []
     } 
-  });
-  const [dirty, setDirty] = useState(false);
+  });  const [dirty, setDirty] = useState(false);
   const [currentMode, setCurrentMode] = useState('View'); // Track current mode for status bar
+  const [buildingClickHandler, setBuildingClickHandler] = useState(null);
 
   // Use useCallback to memoize the saveFile function
   const saveFile = useCallback((filePath) => {
@@ -173,11 +173,22 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
       // Remove event listener for keyboard shortcuts
       window.removeEventListener('keydown', handleKeyDown);
     };  }, [saveFile, handleKeyDown]); 
-  
-  // Handle mode change from SimpleTestScene
+    // Handle mode change from SimpleTestScene
   const handleModeChange = useCallback((mode) => {
     setCurrentMode(mode);
   }, []);
+  
+  // Handle building click handler registration from SimpleTestScene
+  const handleBuildingClickRegistration = useCallback((handler) => {
+    setBuildingClickHandler(() => handler);
+  }, []);
+  
+  // Handle building click from ElementsPanel
+  const handleBuildingClick = useCallback(() => {
+    if (buildingClickHandler) {
+      buildingClickHandler();
+    }
+  }, [buildingClickHandler]);
   
   return (
     <div className="app-container">
@@ -193,9 +204,9 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
           topbottom="top"
           defaultWidth={300}
         >
-          <ElementsPanel />
+          <ElementsPanel onBuildingClick={handleBuildingClick} />
         </FloatingPanel>        {/* Main 3D Scene with integrated Properties FloatingPanel */}
-        <SimpleTestScene onModeChange={handleModeChange} />
+        <SimpleTestScene onModeChange={handleModeChange} onBuildingClick={handleBuildingClickRegistration} />
         
         {/* Status bar at the bottom - now shows current mode */}
         <StatusBar viewType="Perspective" mode={currentMode} />

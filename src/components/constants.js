@@ -49,8 +49,8 @@ export const SELECTION_STATES = {
 
 export const HIGHLIGHT_MATERIALS = {
   HOVER: new THREE.MeshStandardMaterial({
-    color: 0x00ccff,
-    emissive: 0x00ccff,
+    color: 0x008AFF,
+    emissive: 0x008AFF,
     emissiveIntensity: 0.3,
     roughness: 0.4,
     metalness: 0.1,
@@ -58,8 +58,8 @@ export const HIGHLIGHT_MATERIALS = {
     opacity: 0.9
   }),
   SELECTED: new THREE.MeshStandardMaterial({
-    color: 0x0066ff,
-    emissive: 0x0066ff,
+    color: 0x00DDFF,
+    emissive: 0x00DDFF,
     emissiveIntensity: 0.4,
     roughness: 0.3,
     metalness: 0.2,

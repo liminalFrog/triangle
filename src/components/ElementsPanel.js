@@ -1,10 +1,17 @@
 import React from 'react';
 import './ElementsPanel.css';
 
-function ElementsPanel() {
+function ElementsPanel({ onBuildingClick }) {
   // Handle click on a library object
   const handleLibraryItemClick = (objectType) => {
     console.log(`Selected library item: ${objectType}`);
+    
+    // Special handling for Building - trigger context menu
+    if (objectType === 'Building' && onBuildingClick) {
+      onBuildingClick();
+      return;
+    }
+    
     // This function would eventually add the object to the scene
   };
 
@@ -13,10 +20,6 @@ function ElementsPanel() {
       <div className="panel-section">
         <h3 className="panel-section-title">Scene Objects</h3>
         <div className="object-list">
-          <div className="object-item">
-            <span className="object-icon">□</span>
-            <span className="object-name">Building</span>
-          </div>
           <div className="object-item">
             <span className="object-icon">▭</span>
             <span className="object-name">Ground</span>
