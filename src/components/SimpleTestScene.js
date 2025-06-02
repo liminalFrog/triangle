@@ -107,11 +107,12 @@ function TestSelectionManager({ selectedObjects, setSelectedObjects, isSelectMod
 }
 
 // Test cube component - 1x1 foot cube
-function TestCube({ position, name }) {
+function TestCube({ position, name, id }) {
   const meshRef = useRef();
   
   // Add more comprehensive properties for testing the InfoPanel
   const cubeProperties = {
+    id: id,
     name: name,
     position: position,
     dimensions: [12, 12, 12], // 12 inches x 12 inches x 12 inches
@@ -141,6 +142,7 @@ function TestCube({ position, name }) {
       position={position}
       userData={{ 
         isTestObject: true, 
+        id,
         name,
         elementCategory: 'Test Objects',
         elementType: 'Geometric Primitive',
@@ -154,7 +156,63 @@ function TestCube({ position, name }) {
   );
 }
 
-// Click handler with multi-selection support
+// Camera controller for zoom-to-selection functionality
+function CameraController({ selectedObjects, onZoomToSelection }) {
+  const { camera } = useThree();
+  const controlsRef = useRef();
+  
+  // Set up ref for OrbitControls
+  useEffect(() => {
+    const controls = document.querySelector('canvas').parentElement.querySelector('[data-camera-controls]');
+    if (controls) {
+      controlsRef.current = controls;
+    }
+  }, []);
+  
+  // Handle zoom to selection
+  useEffect(() => {
+    const handleZoom = () => {
+      if (selectedObjects.length === 0) {
+        console.log('No objects selected to zoom to');
+        return;
+      }
+      
+      // Calculate bounding box of all selected objects
+      const box = new THREE.Box3();
+      selectedObjects.forEach(obj => {
+        const objBox = new THREE.Box3().setFromObject(obj);
+        box.union(objBox);
+      });
+      
+      if (box.isEmpty()) return;
+      
+      // Get box center and size
+      const center = box.getCenter(new THREE.Vector3());
+      const size = box.getSize(new THREE.Vector3());
+      const maxSize = Math.max(size.x, size.y, size.z);
+        // Calculate camera distance to frame the objects nicely with more comfortable spacing
+      const fov = camera.fov * (Math.PI / 180); // Convert to radians
+      const distance = maxSize / (2 * Math.tan(fov / 2)) * 3.0; // Increased from 1.5 to 3.0 for more distance
+      
+      // Position camera at an angle above and to the side of the selection
+      const cameraOffset = new THREE.Vector3(distance * 0.8, distance * 0.6, distance * 0.8);
+      const newPosition = center.clone().add(cameraOffset);
+      
+      // Update camera position and target
+      camera.position.copy(newPosition);
+      camera.lookAt(center);
+      camera.updateProjectionMatrix();
+      
+      console.log(`Zoomed to ${selectedObjects.length} selected object(s)`);
+    };
+    
+    if (onZoomToSelection) {
+      onZoomToSelection.current = handleZoom;
+    }
+  }, [selectedObjects, camera, onZoomToSelection]);
+  
+  return null;
+}
 function ClickHandler({ onObjectClick, isSelectMode }) {
   const { scene, raycaster, camera, mouse } = useThree();
   const [isMouseDown, setIsMouseDown] = useState(false);
@@ -209,6 +267,83 @@ function SimpleTestScene({ onModeChange }) {
   const [selectedObjects, setSelectedObjects] = useState([]);
   const [isSelectMode, setIsSelectMode] = useState(false); // Start in View Mode
   
+  // Dynamic objects state - manage objects that can be created/deleted
+  const [objects, setObjects] = useState([
+    { id: 'cube1', position: [0, 0.5, 0], name: 'Cube1' },
+    { id: 'cube2', position: [4, 0.5, 0], name: 'Cube2' },
+    { id: 'cube3', position: [0, 0.5, 4], name: 'Cube3' }
+  ]);
+  
+  // Undo/Redo system
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  
+  // Save state to history for undo/redo
+  const saveToHistory = useCallback((action, previousState, newState) => {
+    const newHistoryEntry = {
+      action,
+      previousState,
+      newState,
+      timestamp: Date.now()
+    };
+    
+    // Remove any future history if we're not at the end
+    const newHistory = history.slice(0, historyIndex + 1);
+    newHistory.push(newHistoryEntry);
+    
+    // Limit history to 50 entries
+    if (newHistory.length > 50) {
+      newHistory.shift();
+    } else {
+      setHistoryIndex(prev => prev + 1);
+    }
+    
+    setHistory(newHistory);
+  }, [history, historyIndex]);
+  
+  // Delete selected objects
+  const deleteSelectedObjects = useCallback(() => {
+    if (selectedObjects.length === 0) return;
+    
+    const previousObjects = [...objects];
+    const selectedIds = selectedObjects.map(obj => obj.userData.id);
+    const newObjects = objects.filter(obj => !selectedIds.includes(obj.id));
+    
+    // Save to history
+    saveToHistory('delete', previousObjects, newObjects);
+    
+    // Update state
+    setObjects(newObjects);
+    setSelectedObjects([]);
+    
+    console.log(`Deleted ${selectedObjects.length} object(s)`);
+  }, [selectedObjects, objects, saveToHistory]);
+  
+  // Undo action
+  const undo = useCallback(() => {
+    if (historyIndex < 0) return;
+    
+    const entry = history[historyIndex];
+    setObjects(entry.previousState);
+    setSelectedObjects([]);
+    setHistoryIndex(prev => prev - 1);
+    
+    console.log(`Undid: ${entry.action}`);
+  }, [history, historyIndex]);
+    // Redo action
+  const redo = useCallback(() => {
+    if (historyIndex >= history.length - 1) return;
+    
+    const entry = history[historyIndex + 1];
+    setObjects(entry.newState);
+    setSelectedObjects([]);
+    setHistoryIndex(prev => prev + 1);
+    
+    console.log(`Redid: ${entry.action}`);  }, [history, historyIndex]);
+  
+  // Ref for zoom to selection function
+  const zoomToSelectionRef = useRef();
+  
   // Generate selection info for InfoPanel
   const generateSelectionInfo = useCallback(() => {
     if (selectedObjects.length === 0) {
@@ -251,11 +386,11 @@ function SimpleTestScene({ onModeChange }) {
       subtype: allSameSubtype ? userData.elementSubtype : 'Mixed'
     };
   }, [selectedObjects]);
-  
-  const selectionInfo = generateSelectionInfo();
-    // Handle Tab key to toggle between View Mode and Select Mode
+    const selectionInfo = generateSelectionInfo();
+    // Handle keyboard shortcuts: Tab (mode toggle), Delete, Ctrl+Z (undo), Ctrl+Y (redo), Numpad 9 (zoom to selection)
   useEffect(() => {
     const handleKeyDown = (event) => {
+      // Tab key - toggle between View Mode and Select Mode
       if (event.key === 'Tab') {
         event.preventDefault(); // Prevent default tab behavior
         setIsSelectMode(prev => {
@@ -266,7 +401,8 @@ function SimpleTestScene({ onModeChange }) {
           if (onModeChange) {
             onModeChange(newMode ? 'Select' : 'View');
           }
-            // Clear selection when switching to View Mode
+          
+          // Clear selection when switching to View Mode
           if (!newMode) {
             setSelectedObjects([]);
           }
@@ -274,11 +410,37 @@ function SimpleTestScene({ onModeChange }) {
           return newMode;
         });
       }
+      
+      // Delete key - delete selected objects (only in Select Mode)
+      else if (event.key === 'Delete' && isSelectMode) {
+        event.preventDefault();
+        deleteSelectedObjects();
+      }
+      
+      // Ctrl+Z - undo
+      else if (event.ctrlKey && event.key === 'z' && !event.shiftKey) {
+        event.preventDefault();
+        undo();
+      }
+      
+      // Ctrl+Y or Ctrl+Shift+Z - redo
+      else if ((event.ctrlKey && event.key === 'y') || (event.ctrlKey && event.shiftKey && event.key === 'Z')) {
+        event.preventDefault();
+        redo();
+      }
+      
+      // Numpad 9 - zoom to selection
+      else if (event.code === 'Numpad9') {
+        event.preventDefault();
+        if (zoomToSelectionRef.current) {
+          zoomToSelectionRef.current();
+        }
+      }
     };
     
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onModeChange]);
+  }, [onModeChange, isSelectMode, deleteSelectedObjects, undo, redo]);
   
   const handleObjectClick = useCallback((object, isShiftPressed) => {
     if (!object) {
@@ -315,20 +477,24 @@ function SimpleTestScene({ onModeChange }) {
         <directionalLight position={[10, 10, 5]} intensity={1} />        {/* Camera - adjusted for Imperial scale */}
         <PerspectiveCamera makeDefault position={[10, 8, 10]} />
         <OrbitControls />
-        
-        {/* Imperial Grid - 50 feet x 50 feet with foot and inch markings */}
+          {/* Imperial Grid - 50 feet x 50 feet with foot and inch markings */}
         <Grid sizeInFeet={50} />
         
-        {/* Test objects - 1x1 foot cubes positioned on foot boundaries */}
-        <TestCube position={[0, 0.5, 0]} name="Cube1" />
-        <TestCube position={[4, 0.5, 0]} name="Cube2" />
-        <TestCube position={[0, 0.5, 4]} name="Cube3" />
+        {/* Dynamic test objects - 1x1 foot cubes positioned on foot boundaries */}
+        {objects.map(obj => (
+          <TestCube 
+            key={obj.id}
+            id={obj.id}
+            position={obj.position} 
+            name={obj.name} 
+          />
+        ))}
         
         {/* Optional: Invisible ground plane for shadows/interaction */}
         <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} visible={false}>
           <planeGeometry args={[100, 100]} />
           <meshStandardMaterial />
-        </mesh>{/* Selection and click handling */}
+        </mesh>        {/* Selection and click handling */}
         <TestSelectionManager 
           selectedObjects={selectedObjects}
           setSelectedObjects={setSelectedObjects}
@@ -337,7 +503,11 @@ function SimpleTestScene({ onModeChange }) {
         <ClickHandler 
           onObjectClick={handleObjectClick} 
           isSelectMode={isSelectMode}
-        />      </Canvas>
+        />
+        <CameraController 
+          selectedObjects={selectedObjects}
+          onZoomToSelection={zoomToSelectionRef}
+        /></Canvas>
       
       {/* Properties FloatingPanel on the right side */}
       <FloatingPanel
@@ -348,6 +518,27 @@ function SimpleTestScene({ onModeChange }) {
         defaultWidth={320}
       >
         <InfoPanel selectionInfo={selectionInfo} />
+        
+        {/* Keyboard shortcuts info */}
+        <div style={{ 
+          margin: '16px', 
+          padding: '12px', 
+          backgroundColor: '#2d2d2d', 
+          borderRadius: '4px',
+          fontSize: '12px',
+          color: '#cccccc'
+        }}>          <div style={{ fontWeight: 'bold', marginBottom: '8px' }}>Keyboard Shortcuts:</div>
+          <div>• <strong>Tab:</strong> Toggle View/Select Mode</div>
+          <div>• <strong>Delete:</strong> Delete selected objects</div>
+          <div>• <strong>Ctrl+Z:</strong> Undo</div>
+          <div>• <strong>Ctrl+Y:</strong> Redo</div>
+          <div>• <strong>Numpad 9:</strong> Zoom to selection</div>
+          <div style={{ marginTop: '8px', fontSize: '11px', opacity: 0.7 }}>
+            History: {historyIndex + 1}/{history.length} 
+            {historyIndex >= 0 && ` (Can undo: ${historyIndex + 1})`}
+            {historyIndex < history.length - 1 && ` (Can redo: ${history.length - historyIndex - 1})`}
+          </div>
+        </div>
       </FloatingPanel>
     </div>
   );
