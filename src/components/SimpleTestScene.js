@@ -9,18 +9,52 @@ import InfoPanel from './InfoPanel';
 import FloatingPanel from './FloatingPanel';
 import { HIGHLIGHT_MATERIALS } from './constants';
 
+// Grid component for CAD-style visualization with Imperial units
+function Grid({ 
+  sizeInFeet = 50, 
+  colorCenterLine = 0x666666, 
+  colorFeet = 0x444444, 
+  colorInches = 0x222222 
+}) {
+  const gridRef = useRef();
+  
+  useEffect(() => {
+    if (gridRef.current) {
+      // Clear any existing grids
+      gridRef.current.clear();
+      
+      // Convert feet to Three.js units (1 foot = 1 unit)
+      const size = sizeInFeet;
+      
+      // Main grid - 1 foot intervals
+      const feetGrid = new THREE.GridHelper(size, size, colorCenterLine, colorFeet);
+      feetGrid.position.y = 0; // Position at ground level
+      
+      // Fine grid - 1 inch intervals (12 divisions per foot)
+      const inchGrid = new THREE.GridHelper(size, size * 12, colorInches, colorInches);
+      inchGrid.position.y = 0.01; // Slightly above main grid
+      inchGrid.material.opacity = 0.3;
+      inchGrid.material.transparent = true;
+      
+      // Add both grids to the group
+      gridRef.current.add(feetGrid);
+      gridRef.current.add(inchGrid);
+    }
+  }, [sizeInFeet, colorCenterLine, colorFeet, colorInches]);
+  
+  return <group ref={gridRef} />;
+}
+
 // Simple hover and selection manager with multi-selection support
-function TestSelectionManager({ selectedObjects, setSelectedObjects, setHoveredObject, isSelectMode }) {
+function TestSelectionManager({ selectedObjects, setSelectedObjects, isSelectMode }) {
   const [hoveredItem, setHoveredItem] = useState(null);
   const { scene, camera, raycaster, mouse } = useThree();
   const lastMousePos = useRef(new THREE.Vector2(-999, -999));
     useFrame(() => {
     // Only check for hover in Select Mode
-    if (!isSelectMode) {
-      // Clear any existing hover state when in View Mode
+    if (!isSelectMode) {      // Clear any existing hover state when in View Mode
       if (hoveredItem) {
         setHoveredItem(null);
-        setHoveredObject(null);
       }
       return;
     }
@@ -43,11 +77,9 @@ function TestSelectionManager({ selectedObjects, setSelectedObjects, setHoveredO
     const testObject = intersects.find(intersect => 
       intersect.object.userData?.isTestObject
     )?.object;
-    
-    if (testObject !== hoveredItem) {
+      if (testObject !== hoveredItem) {
       console.log('Hover changed:', testObject?.userData?.name || 'none');
       setHoveredItem(testObject || null);
-      setHoveredObject(testObject || null);
     }
   });
   // Apply materials based on state
@@ -74,7 +106,7 @@ function TestSelectionManager({ selectedObjects, setSelectedObjects, setHoveredO
   return null;
 }
 
-// Test cube component
+// Test cube component - 1x1 foot cube
 function TestCube({ position, name }) {
   const meshRef = useRef();
   
@@ -82,16 +114,22 @@ function TestCube({ position, name }) {
   const cubeProperties = {
     name: name,
     position: position,
-    dimensions: [2, 2, 2],
-    volume: 8.0,
-    surfaceArea: 24.0,
+    dimensions: [12, 12, 12], // 12 inches x 12 inches x 12 inches
+    dimensionsDisplay: "1' x 1' x 1'",
+    volume: 1.0, // 1 cubic foot
+    volumeDisplay: "1 ft³",
+    surfaceArea: 6.0, // 6 square feet
+    surfaceAreaDisplay: "6 ft²",
     color: '#0077ff',
     material: 'Standard Material',
     castShadow: false,
     receiveShadow: false,
-    mass: 1.5,
-    density: 0.1875,
-    temperature: 20.0,
+    mass: 50, // 50 lbs (approximate for a 1ft cube of wood)
+    massDisplay: "50 lbs",
+    density: 0.8, // Wood density in lbs/ft³
+    densityDisplay: "50 lbs/ft³",
+    temperature: 68.0, // Room temperature in Fahrenheit
+    temperatureDisplay: "68°F",
     status: 'Active',
     created: new Date().toISOString().split('T')[0],
     lastModified: new Date().toLocaleTimeString()
@@ -106,11 +144,11 @@ function TestCube({ position, name }) {
         name,
         elementCategory: 'Test Objects',
         elementType: 'Geometric Primitive',
-        elementSubtype: 'Cube',
+        elementSubtype: 'Cube (1 ft³)',
         properties: cubeProperties
       }}
     >
-      <boxGeometry args={[2, 2, 2]} />
+      <boxGeometry args={[1, 1, 1]} />
       <meshStandardMaterial color={0x0077ff} />
     </mesh>
   );
@@ -169,7 +207,6 @@ function ClickHandler({ onObjectClick, isSelectMode }) {
 
 function SimpleTestScene({ onModeChange }) {
   const [selectedObjects, setSelectedObjects] = useState([]);
-  const [hoveredObject, setHoveredObject] = useState(null);
   const [isSelectMode, setIsSelectMode] = useState(false); // Start in View Mode
   
   // Generate selection info for InfoPanel
@@ -229,11 +266,9 @@ function SimpleTestScene({ onModeChange }) {
           if (onModeChange) {
             onModeChange(newMode ? 'Select' : 'View');
           }
-          
-          // Clear selection and hover when switching to View Mode
+            // Clear selection when switching to View Mode
           if (!newMode) {
             setSelectedObjects([]);
-            setHoveredObject(null);
           }
           
           return newMode;
@@ -277,27 +312,26 @@ function SimpleTestScene({ onModeChange }) {
         
         {/* Lighting */}
         <ambientLight intensity={0.6} />
-        <directionalLight position={[10, 10, 5]} intensity={1} />
-        
-        {/* Camera */}
-        <PerspectiveCamera makeDefault position={[5, 5, 5]} />
+        <directionalLight position={[10, 10, 5]} intensity={1} />        {/* Camera - adjusted for Imperial scale */}
+        <PerspectiveCamera makeDefault position={[10, 8, 10]} />
         <OrbitControls />
         
-        {/* Test objects */}
-        <TestCube position={[0, 0, 0]} name="Cube1" />
-        <TestCube position={[4, 0, 0]} name="Cube2" />
-        <TestCube position={[0, 4, 0]} name="Cube3" />
+        {/* Imperial Grid - 50 feet x 50 feet with foot and inch markings */}
+        <Grid sizeInFeet={50} />
         
-        {/* Ground */}
-        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2, 0]}>
-          <planeGeometry args={[20, 20]} />
-          <meshStandardMaterial color="#333" />
-        </mesh>
-          {/* Selection and click handling */}
+        {/* Test objects - 1x1 foot cubes positioned on foot boundaries */}
+        <TestCube position={[0, 0.5, 0]} name="Cube1" />
+        <TestCube position={[4, 0.5, 0]} name="Cube2" />
+        <TestCube position={[0, 0.5, 4]} name="Cube3" />
+        
+        {/* Optional: Invisible ground plane for shadows/interaction */}
+        <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, 0, 0]} visible={false}>
+          <planeGeometry args={[100, 100]} />
+          <meshStandardMaterial />
+        </mesh>{/* Selection and click handling */}
         <TestSelectionManager 
           selectedObjects={selectedObjects}
           setSelectedObjects={setSelectedObjects}
-          setHoveredObject={setHoveredObject}
           isSelectMode={isSelectMode}
         />
         <ClickHandler 
