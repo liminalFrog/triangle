@@ -190,19 +190,19 @@ function getWallAlignmentOffset(wall, alignment, wallThickness) {
     case 'inside':
       // Move wall inward (toward building center)
       switch (side) {
-        case 'north': return { x: 0, z: -offset };
-        case 'south': return { x: 0, z: offset };
-        case 'east': return { x: -offset, z: 0 };
-        case 'west': return { x: offset, z: 0 };
+        case 'north': return { x: 0, z: -offset }; // Move south (toward center)
+        case 'south': return { x: 0, z: offset };  // Move north (toward center)
+        case 'east': return { x: -offset, z: 0 };  // Move west (toward center)
+        case 'west': return { x: offset, z: 0 };   // Move east (toward center)
         default: return { x: 0, z: 0 };
       }
     case 'outside':
       // Move wall outward (away from building center)
       switch (side) {
-        case 'north': return { x: 0, z: offset };
-        case 'south': return { x: 0, z: -offset };
-        case 'east': return { x: offset, z: 0 };
-        case 'west': return { x: -offset, z: 0 };
+        case 'north': return { x: 0, z: offset };  // Move north (away from center)
+        case 'south': return { x: 0, z: -offset }; // Move south (away from center)
+        case 'east': return { x: offset, z: 0 };   // Move east (away from center)
+        case 'west': return { x: -offset, z: 0 };  // Move west (away from center)
         default: return { x: 0, z: 0 };
       }
     default:
@@ -485,17 +485,29 @@ function MouseTracker({ placementMode, setMousePosition, placementAlignment, pla
       let snappedZ = Math.round(intersection.z);      // Apply alignment offset based on current alignment mode
       const wallThickness = 0.5; // 6 inches
       
-      // Calculate alignment offsets - simple approach
+      // Calculate alignment offsets - account for rotation
       let offsetX = 0, offsetZ = 0;
       
-      if (placementAlignment === 'inside') {
-        // Move building so inside faces align with grid
-        offsetX = wallThickness / 2;
-        offsetZ = wallThickness / 2;
-      } else if (placementAlignment === 'outside') {
-        // Move building so outside faces align with grid  
-        offsetX = -wallThickness / 2;
-        offsetZ = -wallThickness / 2;
+      if (placementAlignment !== 'center') {
+        const offset = wallThickness / 2;
+        const multiplier = placementAlignment === 'inside' ? 1 : -1; // inside moves inward, outside moves outward
+        
+        // Apply offset based on rotation - we need to consider which wall face should align with grid
+        // For 0 rotation (building aligned with axes):
+        // - Inside: building moves +offset so inside faces align with grid 
+        // - Outside: building moves -offset so outside faces align with grid
+        
+        // Rotate the offset vector by the placement rotation
+        const cos = Math.cos(placementRotation);
+        const sin = Math.sin(placementRotation);
+        
+        // Base offset vector (for 0 rotation)
+        const baseOffsetX = multiplier * offset;
+        const baseOffsetZ = multiplier * offset;
+        
+        // Rotate the offset to match building orientation
+        offsetX = baseOffsetX * cos - baseOffsetZ * sin;
+        offsetZ = baseOffsetX * sin + baseOffsetZ * cos;
       }
       // For 'center', no offset needed - walls center on grid
       
