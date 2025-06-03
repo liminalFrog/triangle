@@ -164,19 +164,13 @@ function Building({ id, name, mode, points, position }) {
     console.log(`Building component rendering - mode: ${mode}, points:`, points);
     
     if (!points || points.length < 2) return null;
-    
-    if (mode === 'lines') {
-      // Create line geometry for lines mode
-      const geometry = new THREE.BufferGeometry();
-      const positions = [];
+      if (mode === 'lines') {
+      // Create extruded wall geometry from line segments
+      const wallHeight = 10; // 10 feet tall walls
+      const wallThickness = 0.5; // 6 inches thick walls
       
-      points.forEach(point => {
-        positions.push(point.x, point.y, point.z);
-      });
-      
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-      console.log('Created line geometry for building');
-      return { type: 'line', geometry };
+      console.log('Creating extruded wall geometry from lines');
+      return { type: 'walls', points, wallHeight, wallThickness };
       
     } else if (mode === 'rectangle') {
       // Create extruded building for rectangle mode
@@ -191,17 +185,15 @@ function Building({ id, name, mode, points, position }) {
           shape.lineTo(points[i].x, points[i].z);
         }
       }
-      
-      // Extrude the shape to create a 3D building
+        // Extrude the shape to create a 3D building
       const extrudeSettings = {
         depth: 10, // 10 feet tall building
         bevelEnabled: false
       };
-      
-      const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
-        // Rotate geometry to be upright
+        const geometry = new THREE.ExtrudeGeometry(shape, extrudeSettings);
+      // Rotate geometry to be upright and fix mirroring
       geometry.rotateX(-Math.PI / 2);
-      geometry.translate(0, 0, 0); // Keep building at ground level
+      geometry.translate(0, 0, 0); // Keep at ground level - the extrude depth handles the height
       
       console.log('Created mesh geometry for rectangle building');
       return { type: 'mesh', geometry };
@@ -248,74 +240,76 @@ function Building({ id, name, mode, points, position }) {
     lastModified: new Date().toLocaleTimeString()
   };
   
-  if (buildingGeometry.type === 'line') {
+  if (buildingGeometry.type === 'walls') {
+    // Render extruded walls from line segments
+    const { points, wallHeight, wallThickness } = buildingGeometry;
+    
     return (
       <group>
-        {/* Create tube geometry for better line visibility */}        {points && points.map((point, index) => {
-          if (index === 0) return null;
-          const startPoint = points[index - 1];
-          const endPoint = point;
-          
-          // Create tube geometry
-          const curve = new THREE.LineCurve3(startPoint, endPoint);
-          const tubeGeometry = new THREE.TubeGeometry(curve, 1, 0.05, 8, false);
-          
-          return (
-            <mesh key={`line-${index}`} geometry={tubeGeometry} position={position}>
-              <meshBasicMaterial color={0x00ff00} />
-            </mesh>
-          );
-        })}
-        
-        {/* Add glow effect with larger tubes */}
         {points && points.map((point, index) => {
-          if (index === 0) return null;
+          if (index === 0) return null; // Skip first point as we need pairs
+          
           const startPoint = points[index - 1];
           const endPoint = point;
           
-          const curve = new THREE.LineCurve3(startPoint, endPoint);
-          const glowGeometry = new THREE.TubeGeometry(curve, 1, 0.1, 8, false);
+          // Calculate wall segment properties
+          const deltaX = endPoint.x - startPoint.x;
+          const deltaZ = endPoint.z - startPoint.z;
+          const wallLength = Math.sqrt(deltaX * deltaX + deltaZ * deltaZ);
+          const wallAngle = Math.atan2(deltaZ, deltaX);
+          
+          // Calculate center position of wall segment
+          const centerX = (startPoint.x + endPoint.x) / 2;
+          const centerZ = (startPoint.z + endPoint.z) / 2;
+          const centerY = wallHeight / 2;
           
           return (
-            <mesh key={`glow-${index}`} geometry={glowGeometry} position={position}>
-              <meshBasicMaterial 
-                color={0x88ff88} 
-                transparent={true} 
-                opacity={0.3} 
-              />
+            <mesh 
+              key={`wall-segment-${index}`}
+              position={[centerX + position[0], centerY + position[1], centerZ + position[2]]}
+              rotation={[0, wallAngle, 0]}
+              userData={{
+                isTestObject: true,
+                id: `${id}_wall_${index}`,
+                name: `${name}_Wall_${index}`,
+                elementCategory: 'Buildings',
+                elementType: 'Wall',
+                elementSubtype: 'Exterior Wall',
+                properties: {
+                  ...buildingProperties,
+                  wallLength: wallLength.toFixed(2),
+                  wallHeight: wallHeight,
+                  wallThickness: wallThickness
+                }
+              }}
+            >
+              <boxGeometry args={[wallLength, wallHeight, wallThickness]} />
+              <meshStandardMaterial color={0x888888} />
             </mesh>
           );
         })}
         
-        {/* Add vertex markers at points */}
+        {/* Add corner posts at connection points */}
         {points && points.map((point, index) => (
-          <mesh key={`vertex-${index}`} position={[point.x + position[0], point.y + position[1], point.z + position[2]]}>
-            <sphereGeometry args={[0.08, 8, 8]} />
-            <meshBasicMaterial color={0x00ff00} />
+          <mesh 
+            key={`corner-post-${index}`}
+            position={[point.x + position[0], wallHeight / 2 + position[1], point.z + position[2]]}
+            userData={{
+              isTestObject: true,
+              id: `${id}_post_${index}`,
+              name: `${name}_Post_${index}`,
+              elementCategory: 'Buildings',
+              elementType: 'Structure',
+              elementSubtype: 'Corner Post',
+              properties: buildingProperties
+            }}
+          >
+            <boxGeometry args={[wallThickness, wallHeight, wallThickness]} />
+            <meshStandardMaterial color={0x666666} />
           </mesh>
         ))}
-        
-        {/* Keep the original line for userData */}
-        <line
-          ref={meshRef}
-          geometry={buildingGeometry.geometry}
-          position={position}
-          userData={{
-            isTestObject: true,
-            id,
-            name,
-            elementCategory: 'Buildings',
-            elementType: 'Building Structure',
-            elementSubtype: mode === 'lines' ? 'Building Outline' : 'Solid Building',
-            properties: buildingProperties
-          }}
-          visible={false}
-        >
-          <lineBasicMaterial color={0x00ff00} />
-        </line>
       </group>
-    );
-  } else if (buildingGeometry.type === 'mesh') {
+    );  } else if (buildingGeometry.type === 'mesh') {
     return (
       <mesh
         ref={meshRef}
@@ -643,8 +637,7 @@ function DrawingHandler({
       
       geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
       setPreviewGeometry({ type: 'line', geometry });
-      
-    } else if (drawingMode === 'rectangle' && drawingPoints.length === 1) {
+        } else if (drawingMode === 'rectangle' && drawingPoints.length === 1) {
       // Create rectangle preview
       const startPoint = drawingPoints[0];
       
@@ -656,8 +649,8 @@ function DrawingHandler({
         const positions = [
           startPoint.x, startPoint.y, startPoint.z,
           endPoint.x, startPoint.y, startPoint.z,
-          endPoint.x, endPoint.y, endPoint.z,
-          startPoint.x, endPoint.y, endPoint.z,
+          endPoint.x, startPoint.y, endPoint.z,
+          startPoint.x, startPoint.y, endPoint.z,
           startPoint.x, startPoint.y, startPoint.z // Close rectangle
         ];
         
@@ -1048,8 +1041,7 @@ function SimpleTestScene({ onModeChange, onBuildingClick }) {
   // Undo/Redo system
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
-  
-  // Save state to history for undo/redo
+    // Save state to history for undo/redo
   const saveToHistory = useCallback((action, previousState, newState) => {
     const newHistoryEntry = {
       action,
@@ -1065,8 +1057,9 @@ function SimpleTestScene({ onModeChange, onBuildingClick }) {
     // Limit history to 50 entries
     if (newHistory.length > 50) {
       newHistory.shift();
+      setHistoryIndex(newHistory.length - 1);
     } else {
-      setHistoryIndex(prev => prev + 1);
+      setHistoryIndex(newHistory.length - 1);
     }
     
     setHistory(newHistory);
@@ -1089,10 +1082,12 @@ function SimpleTestScene({ onModeChange, onBuildingClick }) {
     
     console.log(`Deleted ${selectedObjects.length} object(s)`);
   }, [selectedObjects, objects, saveToHistory]);
-  
-  // Undo action
+    // Undo action
   const undo = useCallback(() => {
-    if (historyIndex < 0) return;
+    if (historyIndex < 0 || !history[historyIndex]) {
+      console.log('Nothing to undo');
+      return;
+    }
     
     const entry = history[historyIndex];
     setObjects(entry.previousState);
@@ -1103,7 +1098,10 @@ function SimpleTestScene({ onModeChange, onBuildingClick }) {
   }, [history, historyIndex]);
     // Redo action
   const redo = useCallback(() => {
-    if (historyIndex >= history.length - 1) return;
+    if (historyIndex >= history.length - 1 || !history[historyIndex + 1]) {
+      console.log('Nothing to redo');
+      return;
+    }
     
     const entry = history[historyIndex + 1];
     setObjects(entry.newState);
@@ -1231,9 +1229,8 @@ function SimpleTestScene({ onModeChange, onBuildingClick }) {
     event.preventDefault();
     // Don't show context menu on right-click anymore
     // Context menu is now triggered by Shift+A
-  }, []);
-  // Handle context menu display
-  const showContextMenu = useCallback((event, menuType = 'library') => {
+  }, []);  // Handle context menu display
+  const showContextMenu = useCallback((mousePosition, menuType = 'library') => {
     let menuItems = [];
     
     if (menuType === 'library') {
@@ -1242,7 +1239,7 @@ function SimpleTestScene({ onModeChange, onBuildingClick }) {
           id: 'building',
           label: 'Building',
           category: 'Library',
-          action: () => showContextMenu(event, 'building')
+          action: () => showContextMenu(mousePosition, 'building')
         },
         {
           id: 'wall',
@@ -1343,22 +1340,22 @@ function SimpleTestScene({ onModeChange, onBuildingClick }) {
     
     setContextMenu({
       visible: true,
-      x: event.clientX || window.innerWidth / 2,
-      y: event.clientY || window.innerHeight / 2,
+      x: mousePosition.x,
+      y: mousePosition.y,
       items: menuItems
     });
   }, [startDrawing]);
     const closeContextMenu = useCallback(() => {
     setContextMenu({ visible: false, x: 0, y: 0, items: [] });
-  }, []);
-    // Handle building click from ElementsPanel
+  }, []);  // Handle building click from ElementsPanel
   const handleBuildingClick = useCallback(() => {
-    // Create a synthetic event for the context menu positioning
-    const syntheticEvent = {
-      clientX: window.innerWidth / 2,
-      clientY: window.innerHeight / 2
+    // Use the last known mouse position from the global tracker
+    // This will be updated by the mouse tracker effect
+    const mousePosition = {
+      x: window.lastKnownMouseX || window.innerWidth / 2,
+      y: window.lastKnownMouseY || window.innerHeight / 2
     };
-    showContextMenu(syntheticEvent, 'building');
+    showContextMenu(mousePosition, 'building');
   }, [showContextMenu]);
   
   // Pass building click handler to parent
@@ -1367,6 +1364,43 @@ function SimpleTestScene({ onModeChange, onBuildingClick }) {
       onBuildingClick(handleBuildingClick);
     }
   }, [onBuildingClick, handleBuildingClick]);
+  // Add global mouse position tracker for context menu
+  useEffect(() => {
+    let lastKnownMouseX = window.innerWidth / 2;
+    let lastKnownMouseY = window.innerHeight / 2;
+    
+    const trackMousePosition = (e) => {
+      lastKnownMouseX = e.clientX;
+      lastKnownMouseY = e.clientY;
+      // Store globally for Building button access
+      window.lastKnownMouseX = e.clientX;
+      window.lastKnownMouseY = e.clientY;
+    };
+    
+    // Global tracker for Shift+A menu
+    window.addEventListener('mousemove', trackMousePosition);
+    
+    // Add the Shift+A handler
+    const handleShiftA = (e) => {
+      if (e.key === 'A' && e.shiftKey) {
+        e.preventDefault();
+        
+        const mousePosition = {
+          x: lastKnownMouseX,
+          y: lastKnownMouseY
+        };
+        
+        showContextMenu(mousePosition, 'library');
+      }
+    };
+    
+    window.addEventListener('keydown', handleShiftA);
+    
+    return () => {
+      window.removeEventListener('mousemove', trackMousePosition);
+      window.removeEventListener('keydown', handleShiftA);
+    };
+  }, [showContextMenu]);
   
   // Generate selection info for InfoPanel
   const generateSelectionInfo = useCallback(() => {
@@ -1462,17 +1496,11 @@ function SimpleTestScene({ onModeChange, onBuildingClick }) {
       else if (event.code === 'Numpad9') {
         event.preventDefault();
         if (zoomToSelectionRef.current) {
-          zoomToSelectionRef.current();
-        }
-      }
-        // Shift+A - show library context menu
-      else if (event.shiftKey && event.key === 'A') {
-        event.preventDefault();
-        showContextMenu(event, 'library');
+          zoomToSelectionRef.current();        }
       }
     };    window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onModeChange, isSelectMode, deleteSelectedObjects, undo, redo, showContextMenu, dimensionInputActive]);
+  }, [onModeChange, isSelectMode, deleteSelectedObjects, undo, redo, dimensionInputActive]);
   
   const handleObjectClick = useCallback((object, isShiftPressed) => {
     if (!object) {
