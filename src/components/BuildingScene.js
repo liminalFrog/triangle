@@ -47,7 +47,7 @@ function Grid({ sizeInFeet = 50 }) {
   return <group ref={gridRef} />;
 }
 
-// Individual Wall component
+// Individual Wall component with roof cutting support
 function Wall({ 
   id,
   buildingId,
@@ -57,20 +57,70 @@ function Wall({
   properties,
   isSelected,
   isHovered,
-  onWallClick
+  onWallClick,
+  buildingProperties // Pass building properties for roof cutting
 }) {
   const meshRef = useRef();
   const [width, height, thickness] = dimensions;
   
+  // Create roof-cut wall geometry
+  const wallGeometry = useMemo(() => {
+    if (!buildingProperties || buildingProperties.walls.heightToEaves) {
+      // Standard rectangular wall
+      return new THREE.BoxGeometry(width, height, thickness);
+    }
+      // Create wall geometry that's cut by roof shape
+    const { side } = properties;
+    const { width: buildingWidth, eaveHeight } = buildingProperties;
+    const roofPitch = buildingProperties.roof.pitch / 12; // Convert to decimal
+      // Calculate roof cutting based on wall side
+    let wallShape;
+    
+    if (side === 'north' || side === 'south') {
+      // Front/back walls - cut by gable ends
+      const roofRise = (buildingWidth / 2) * roofPitch;
+      const peakHeight = eaveHeight + roofRise;
+      
+      wallShape = new THREE.Shape();
+      wallShape.moveTo(-width / 2, 0);
+      wallShape.lineTo(width / 2, 0);
+      wallShape.lineTo(width / 2, eaveHeight);
+      
+      // Create gable cut line
+      if (height > eaveHeight) {
+        const cutWidth = width / 2;
+        
+        // Right side of gable
+        wallShape.lineTo(cutWidth, eaveHeight);
+        wallShape.lineTo(0, Math.min(peakHeight, height));
+        wallShape.lineTo(-cutWidth, eaveHeight);
+      }
+      
+      wallShape.lineTo(-width / 2, eaveHeight);
+      wallShape.closePath();
+      
+      const extrudeSettings = {
+        depth: thickness,
+        bevelEnabled: false
+      };      const geometry = new THREE.ExtrudeGeometry(wallShape, extrudeSettings);
+      geometry.translate(0, -height / 2, -thickness / 2); // Center the geometry vertically
+      return geometry;    } else {
+      // East/West walls (eave walls) - simple rectangular walls that extend to eave height
+      const eaveWallHeight = Math.min(height, eaveHeight);
+      return new THREE.BoxGeometry(width, eaveWallHeight, thickness);
+    }
+  }, [width, height, thickness, properties, buildingProperties]);
+  
   const material = isSelected ? MATERIALS.WALL.SELECTED : 
                   isHovered ? MATERIALS.WALL.HOVERED : 
                   MATERIALS.WALL.STANDARD;
-  
+
   return (
     <mesh
       ref={meshRef}
       position={position}
       rotation={rotation}
+      geometry={wallGeometry}
       material={material.clone()}
       onClick={(e) => {
         e.stopPropagation();
@@ -83,9 +133,7 @@ function Wall({
         selectable: true,
         properties
       }}
-    >
-      <boxGeometry args={[width, height, thickness]} />
-    </mesh>
+    />
   );
 }
 
@@ -221,37 +269,43 @@ function Building({
   const groupRef = useRef();
   const { id, position, properties } = building;
   const { width, length, eaveHeight, elevation } = properties;
-  
-  const wallThickness = 0.5; // 6 inches
-  const wallHeight = eaveHeight;
-    // Calculate wall positions with alignment offsets
+    const wallThickness = 0.5; // 6 inches
+  const wallHeight = properties.walls.heightToEaves ? eaveHeight : properties.walls.height;  // Calculate wall positions with alignment offsets
+  const getWallHeight = (side) => {
+    // East/West walls (eave walls) only extend to eave height when heightToEaves is false
+    if ((side === 'east' || side === 'west') && !properties.walls.heightToEaves) {
+      return Math.min(wallHeight, eaveHeight);
+    }
+    return wallHeight;
+  };
+
   const walls = [
     {
       id: `${id}_wall_north`,
-      position: [0, wallHeight / 2 + elevation, length / 2],
+      position: [0, getWallHeight('north') / 2 + elevation, length / 2],
       rotation: [0, 0, 0],
-      dimensions: [width, wallHeight, wallThickness],
+      dimensions: [width, getWallHeight('north'), wallThickness],
       properties: { ...building.properties.walls, side: 'north' }
     },
     {
       id: `${id}_wall_south`,
-      position: [0, wallHeight / 2 + elevation, -length / 2],
+      position: [0, getWallHeight('south') / 2 + elevation, -length / 2],
       rotation: [0, 0, 0],
-      dimensions: [width, wallHeight, wallThickness],
+      dimensions: [width, getWallHeight('south'), wallThickness],
       properties: { ...building.properties.walls, side: 'south' }
     },
     {
       id: `${id}_wall_east`,
-      position: [width / 2, wallHeight / 2 + elevation, 0],
+      position: [width / 2, getWallHeight('east') / 2 + elevation, 0],
       rotation: [0, Math.PI / 2, 0],
-      dimensions: [length, wallHeight, wallThickness],
+      dimensions: [length, getWallHeight('east'), wallThickness],
       properties: { ...building.properties.walls, side: 'east' }
     },
     {
       id: `${id}_wall_west`,
-      position: [-width / 2, wallHeight / 2 + elevation, 0],
+      position: [-width / 2, getWallHeight('west') / 2 + elevation, 0],
       rotation: [0, Math.PI / 2, 0],
-      dimensions: [length, wallHeight, wallThickness],
+      dimensions: [length, getWallHeight('west'), wallThickness],
       properties: { ...building.properties.walls, side: 'west' }
     }
   ].map(wall => {
@@ -271,8 +325,7 @@ function Building({
   const roofPosition = [0, eaveHeight + elevation, 0]; // Position at eave height, not above it
   
   return (
-    <group ref={groupRef} position={position} rotation={[0, building.rotation || 0, 0]}>
-      {/* Render walls */}
+    <group ref={groupRef} position={position} rotation={[0, building.rotation || 0, 0]}>      {/* Render walls */}
       {walls.map(wall => (
         <Wall
           key={wall.id}
@@ -285,6 +338,7 @@ function Building({
           isSelected={selectedElement?.id === wall.id}
           isHovered={hoveredElement?.id === wall.id}
           onWallClick={onElementClick}
+          buildingProperties={properties}
         />
       ))}
       
@@ -560,33 +614,92 @@ function PlacementPreview({
 function PlacementBuilding({ building, materials }) {
   const { properties } = building;
   const { width, length, eaveHeight, elevation } = properties;
-  
-  const wallThickness = 0.5;
-  const wallHeight = eaveHeight;
-  
+    const wallThickness = 0.5;
+  const wallHeight = properties.walls.heightToEaves ? eaveHeight : properties.walls.height;
   // Calculate wall positions
+  const getPlacementWallHeight = (side) => {
+    // East/West walls (eave walls) only extend to eave height when heightToEaves is false
+    if ((side === 'east' || side === 'west') && !properties.walls.heightToEaves) {
+      return Math.min(wallHeight, eaveHeight);
+    }
+    return wallHeight;
+  };
+
   const walls = [
     {
-      position: [0, wallHeight / 2 + elevation, length / 2],
+      position: [0, getPlacementWallHeight('north') / 2 + elevation, length / 2],
       rotation: [0, 0, 0],
-      dimensions: [width, wallHeight, wallThickness]
+      dimensions: [width, getPlacementWallHeight('north'), wallThickness],
+      side: 'north'
     },
     {
-      position: [0, wallHeight / 2 + elevation, -length / 2],
+      position: [0, getPlacementWallHeight('south') / 2 + elevation, -length / 2],
       rotation: [0, 0, 0],
-      dimensions: [width, wallHeight, wallThickness]
+      dimensions: [width, getPlacementWallHeight('south'), wallThickness],
+      side: 'south'
     },
     {
-      position: [width / 2, wallHeight / 2 + elevation, 0],
+      position: [width / 2, getPlacementWallHeight('east') / 2 + elevation, 0],
       rotation: [0, Math.PI / 2, 0],
-      dimensions: [length, wallHeight, wallThickness]
+      dimensions: [length, getPlacementWallHeight('east'), wallThickness],
+      side: 'east'
     },
     {
-      position: [-width / 2, wallHeight / 2 + elevation, 0],
+      position: [-width / 2, getPlacementWallHeight('west') / 2 + elevation, 0],
       rotation: [0, Math.PI / 2, 0],
-      dimensions: [length, wallHeight, wallThickness]
+      dimensions: [length, getPlacementWallHeight('west'), wallThickness],
+      side: 'west'
     }
-  ];  // Roof geometry - correct positioning and shape
+  ];
+
+  // Create placement wall geometry with roof cutting
+  const createPlacementWallGeometry = (wall) => {
+    const [wallWidth, wallHeightDim, thickness] = wall.dimensions;
+    
+    if (properties.walls.heightToEaves) {
+      return new THREE.BoxGeometry(wallWidth, wallHeightDim, thickness);
+    }
+    
+    // Create roof-cut geometry for placement preview
+    const { side } = wall;
+    const roofPitch = properties.roof.pitch / 12;
+    
+    if (side === 'north' || side === 'south') {
+      // Front/back walls - cut by gable ends
+      const roofRise = (width / 2) * roofPitch;
+      const peakHeight = eaveHeight + roofRise;
+      
+      const wallShape = new THREE.Shape();
+      wallShape.moveTo(-wallWidth / 2, 0);
+      wallShape.lineTo(wallWidth / 2, 0);
+      wallShape.lineTo(wallWidth / 2, eaveHeight);
+      
+      // Create gable cut line
+      if (wallHeightDim > eaveHeight) {
+        const cutWidth = wallWidth / 2;
+        
+        // Right side of gable
+        wallShape.lineTo(cutWidth, eaveHeight);
+        wallShape.lineTo(0, Math.min(peakHeight, wallHeightDim));
+        wallShape.lineTo(-cutWidth, eaveHeight);
+      }
+      
+      wallShape.lineTo(-wallWidth / 2, eaveHeight);
+      wallShape.closePath();
+      
+      const extrudeSettings = {
+        depth: thickness,
+        bevelEnabled: false
+      };      const geometry = new THREE.ExtrudeGeometry(wallShape, extrudeSettings);
+      geometry.translate(0, -wallHeightDim / 2, -thickness / 2); // Center the geometry vertically
+      return geometry;    } else {
+      // East/West walls (eave walls) - extend to eave height only
+      const eaveWallHeight = Math.min(wallHeightDim, eaveHeight);
+      return new THREE.BoxGeometry(wallWidth, eaveWallHeight, thickness);
+    }
+  };
+
+  // Roof geometry - correct positioning and shape
   const roofPitch = properties.roof.pitch; // 3:12 pitch
   const roofRise = (width / 2) * (roofPitch / 12); // Rise = run * (pitch/12)
   const roofPosition = [0, eaveHeight + elevation, 0]; // Position at eave height, not above it
@@ -616,9 +729,8 @@ function PlacementBuilding({ building, materials }) {
           position={wall.position}
           rotation={wall.rotation}
           material={materials.WALL}
-        >
-          <boxGeometry args={wall.dimensions} />
-        </mesh>
+          geometry={createPlacementWallGeometry(wall)}
+        />
       ))}
         {/* Roof */}
       <mesh
@@ -706,8 +818,7 @@ function BuildingScene({ onSetPlacementTrigger }) {
   const startBuildingPlacement = useCallback(() => {
     const newBuilding = {
       id: `building_${nextBuildingId}`,
-      position: [0, 0, 0],
-      properties: {
+      position: [0, 0, 0],      properties: {
         width: 10,
         length: 10, 
         eaveHeight: 10,
@@ -720,14 +831,13 @@ function BuildingScene({ onSetPlacementTrigger }) {
           sheetingType: 'corrugated',
           exteriorMaterial: 'galvalume',
           interiorMaterial: 'matte_white',
-          heightToEaves: true,
-          height: 0
-        },
-        roof: {
+          heightToEaves: false, // Walls extend past eaves
+          height: 12 // Extend walls 2 feet past eaves for roof cutting
+        },roof: {
           shape: 'gable',
           exteriorMaterial: 'galvalume',
           pitch: 3, // 3:12 pitch
-          overhang: 1,
+          overhang: 0, // Removed overhang for better visibility
           soffit: true,
           soffitMaterial: 'matte_white',
           purlinType: 'standard',
