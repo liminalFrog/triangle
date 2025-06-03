@@ -1,11 +1,18 @@
 import React from 'react';
 import './ElementsPanel.css';
 
-function ElementsPanel() {
-  // Handle click on a library object
+function ElementsPanel({ onStartBuildingPlacement }) {  // Handle click on a library object
   const handleLibraryItemClick = (objectType) => {
     console.log(`Selected library item: ${objectType}`);
-    // This function would eventually add the object to the scene
+    
+    // Handle specific object types
+    if (objectType === 'Building' && onStartBuildingPlacement) {
+      onStartBuildingPlacement();
+      // Remove focus from the button immediately
+      setTimeout(() => document.activeElement?.blur(), 0);
+    }
+    
+    // This function would eventually add other objects to the scene
   };
 
   return (
@@ -13,10 +20,6 @@ function ElementsPanel() {
       <div className="panel-section">
         <h3 className="panel-section-title">Scene Objects</h3>
         <div className="object-list">
-          <div className="object-item">
-            <span className="object-icon">□</span>
-            <span className="object-name">Building</span>
-          </div>
           <div className="object-item">
             <span className="object-icon">▭</span>
             <span className="object-name">Ground</span>
@@ -33,11 +36,12 @@ function ElementsPanel() {
       </div>
       <div className="panel-section">
         <h3 className="panel-section-title">Library</h3>
-        <div className="icon-grid">
-          <button 
+        <div className="icon-grid">          <button 
             className="icon-button" 
             title="Building"
             onClick={() => handleLibraryItemClick('Building')}
+            onMouseDown={(e) => e.preventDefault()} // Prevent focus
+            style={{ outline: 'none' }} // Remove focus outline
           >
             <img src="/icons/building.png" alt="Building" className="icon-image" />
           </button>

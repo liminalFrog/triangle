@@ -33,48 +33,71 @@ const determineViewType = (direction) => {
   return VIEW_TYPE.PERSPECTIVE;
 };
 
-// Component to handle click events using React Three Fiber's event system
-function ClickHandler({ onElementSelect }) {
-  const { scene, raycaster } = useThree();
+// Component to handle click events using manual raycasting for consistent behavior
+function ClickHandler({ onElementSelect, isSelectMode = true }) {
+  const { scene, raycaster, camera, mouse } = useThree();
+  const [isMouseDown, setIsMouseDown] = useState(false);
+  const [mouseDownPos, setMouseDownPos] = useState({ x: 0, y: 0 });
   
-  const handleClick = useCallback((event) => {
-    // event.point contains the 3D world coordinates
-    // event.pointer contains the normalized screen coordinates
+  const handlePointerDown = useCallback((event) => {
+    if (!isSelectMode) return;
     
-    // Perform raycasting using the event data
-    const intersects = raycaster.intersectObjects(scene.children, true);
+    setIsMouseDown(true);
+    setMouseDownPos({ x: event.clientX, y: event.clientY });
+  }, [isSelectMode]);
+  
+  const handlePointerUp = useCallback((event) => {
+    if (!isSelectMode || !isMouseDown) return;
     
-    // Find the first selectable object
-    const firstSelectableIntersect = intersects.find(intersect => {
-      let obj = intersect.object;
-      while (obj && !obj.userData?.isSelectable) {
-        obj = obj.parent;
-      }
-      return obj?.userData?.isSelectable;
-    });
+    // Check if this was a click (not a drag)
+    const deltaX = Math.abs(event.clientX - mouseDownPos.x);
+    const deltaY = Math.abs(event.clientY - mouseDownPos.y);
+    const isClick = deltaX < 5 && deltaY < 5; // 5px tolerance for click vs drag
     
-    // Check if shift key is pressed for multi-selection
-    const addToSelection = event.shiftKey;
-    
-    if (firstSelectableIntersect) {
-      let targetObject = firstSelectableIntersect.object;
-      while (targetObject && !targetObject.userData?.isSelectable) {
-        targetObject = targetObject.parent;
-      }
+    if (isClick) {
+      // Manually perform raycasting using current mouse position
+      raycaster.setFromCamera(mouse, camera);
+      const intersects = raycaster.intersectObjects(scene.children, true);
       
-      onElementSelect(targetObject, addToSelection);
-    } else if (!addToSelection) {
-      // Clicked on empty space with no shift key, deselect all
-      onElementSelect(null);
+      // Find the first selectable object
+      const firstSelectableIntersect = intersects.find(intersect => {
+        let obj = intersect.object;
+        while (obj && !obj.userData?.isSelectable) {
+          obj = obj.parent;
+        }
+        return obj?.userData?.isSelectable;
+      });
+      
+      // Check if shift key is pressed for multi-selection
+      const addToSelection = event.shiftKey;
+      
+      if (firstSelectableIntersect) {
+        let targetObject = firstSelectableIntersect.object;
+        while (targetObject && !targetObject.userData?.isSelectable) {
+          targetObject = targetObject.parent;
+        }
+        onElementSelect(targetObject, addToSelection);
+      } else if (!addToSelection) {
+        // Clicked on empty space with no shift key, deselect all
+        onElementSelect(null);
+      }
     }
-  }, [scene, raycaster, onElementSelect]);
+    
+    setIsMouseDown(false);
+  }, [scene, raycaster, camera, mouse, onElementSelect, isSelectMode, isMouseDown, mouseDownPos]);
   
-  return (
-    <mesh onClick={handleClick} visible={false}>
-      <planeGeometry args={[1000, 1000]} />
-      <meshBasicMaterial transparent opacity={0} />
-    </mesh>
-  );
+  // Set up global event listeners
+  useEffect(() => {
+    window.addEventListener('pointerdown', handlePointerDown);
+    window.addEventListener('pointerup', handlePointerUp);
+    
+    return () => {
+      window.removeEventListener('pointerdown', handlePointerDown);
+      window.removeEventListener('pointerup', handlePointerUp);
+    };
+  }, [handlePointerDown, handlePointerUp]);
+  
+  return null;
 }
 
 // SelectionManager component - handles raycasting and selection highlighting
@@ -82,7 +105,8 @@ function ClickHandler({ onElementSelect }) {
 function SelectionManager({ 
   selectedObjects, 
   multiSelectionActive,
-  setHoveredObject
+  setHoveredObject,
+  isSelectMode = true
 }) {
   const [hoveredItem, setHoveredItem] = useState(null);
   const { scene, camera, invalidate, raycaster, mouse } = useThree();
@@ -151,11 +175,10 @@ function SelectionManager({
       hoveredItem: hoveredItem?.userData?.elementType || 'none',
       multiSelectionActive
     });
-    
-    scene.traverse((obj) => {
+      scene.traverse((obj) => {
       if (obj.userData?.isSelectable) {
         const isSelected = selectedObjects.some(selected => selected.uuid === obj.uuid);
-        const isHovered = obj === hoveredItem;
+        const isHovered = isSelectMode && obj === hoveredItem; // Only show hover in Select Mode
         
         // Determine the correct state for this object
         // Priority: Selected states > Hover state > Normal state
@@ -164,19 +187,25 @@ function SelectionManager({
           // Selection takes priority over hover
           newState = multiSelectionActive ? 'multi_selected' : 'selected';
         } else if (isHovered) {
-          // Only apply hover if not selected
+          // Only apply hover if not selected and in Select Mode
           newState = 'hover';
         }
         
-        console.log(`Object ${obj.uuid} (${obj.userData.elementType}): selected=${isSelected}, hovered=${isHovered}, newState=${newState}`);
         applyObjectState(obj, newState);
       }
-    });  }, [selectedObjects, hoveredItem, multiSelectionActive, scene, applyObjectState]);    // Use the useFrame hook for raycasting and hover detection
+    });  }, [selectedObjects, hoveredItem, multiSelectionActive, scene, applyObjectState, isSelectMode]);// Use the useFrame hook for raycasting and hover detection
   useFrame(() => {
     if (!raycaster || !scene || !camera) return;
     
-    // Debug mouse position
-    console.log(`Mouse position: (${mouse.x.toFixed(3)}, ${mouse.y.toFixed(3)})`);
+    // Only check for hover in Select Mode
+    if (!isSelectMode) {
+      // Clear any existing hover state when in View Mode
+      if (hoveredItem) {
+        setHoveredItem(null);
+        setHoveredObject(null);
+      }
+      return;
+    }
     
     // Update the raycaster with the camera and mouse position
     raycaster.setFromCamera(mouse, camera);
@@ -257,11 +286,38 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
     position: { x: 0, y: 0 },
   });  
   const [selectedObject, setSelectedObject] = useState(null);
-  const [selectedObjects, setSelectedObjects] = useState([]);
-  const [selectionInfo, setSelectionInfo] = useState(null);
+  const [selectedObjects, setSelectedObjects] = useState([]);  const [selectionInfo, setSelectionInfo] = useState(null);
   const [multiSelectionActive, setMultiSelectionActive] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false); // Start in View Mode
   // Use the setter but not the value directly in this component
   const [, setHoveredObject] = useState(null);
+
+  // Handle Tab key to toggle between View Mode and Select Mode
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      if (event.key === 'Tab') {
+        event.preventDefault(); // Prevent default tab behavior
+        setIsSelectMode(prev => {
+          const newMode = !prev;
+          console.log(`Switched to ${newMode ? 'Select' : 'View'} Mode`);
+          
+          // Clear selection and hover when switching to View Mode
+          if (!newMode) {
+            setSelectedObject(null);
+            setSelectedObjects([]);
+            setSelectionInfo(null);
+            setMultiSelectionActive(false);
+            setHoveredObject(null);
+          }
+          
+          return newMode;
+        });
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [setHoveredObject]);
 
   // Update status bar when view type changes
   useEffect(() => {
@@ -898,16 +954,19 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
         >
           <planeGeometry args={[100, 100]} />
           <meshStandardMaterial color="#557d55" />
-        </mesh>
-          {/* Selection Manager - handles raycasting and object highlighting */}
+        </mesh>        {/* Selection Manager - handles raycasting and object highlighting */}
         <SelectionManager 
           selectedObjects={selectedObjects}
           multiSelectionActive={multiSelectionActive}
           setHoveredObject={setHoveredObject}
+          isSelectMode={isSelectMode}
         />
 
         {/* Click Handler - handles canvas click events */}
-        <ClickHandler onElementSelect={handleSelectElement} />
+        <ClickHandler 
+          onElementSelect={handleSelectElement} 
+          isSelectMode={isSelectMode}
+        />
       </Canvas>
 
       {/* Info Panel for Selected Elements */}
@@ -922,11 +981,24 @@ function Scene3D({ projectData, updateProjectData, updateViewType }) {
           onClose={handleCloseContextMenu}
           items={menuItems}
         />
-      )}
-
-      {/* Keyboard Hints */}
+      )}      {/* Keyboard Hints */}
       <div className="keyboard-hint">
-        Press <kbd>Shift</kbd>+<kbd>A</kbd> to add objects | Numpad: <kbd>1</kbd>Front <kbd>3</kbd>Side <kbd>7</kbd>Top <kbd>5</kbd>Toggle <kbd>2</kbd><kbd>4</kbd><kbd>6</kbd><kbd>8</kbd>Rotate
+        Press <kbd>Tab</kbd> to toggle View/Select | <kbd>Shift</kbd>+<kbd>A</kbd> to add objects | Numpad: <kbd>1</kbd>Front <kbd>3</kbd>Side <kbd>7</kbd>Top <kbd>5</kbd>Toggle <kbd>2</kbd><kbd>4</kbd><kbd>6</kbd><kbd>8</kbd>Rotate
+      </div>
+        {/* Mode Indicator */}
+      <div style={{
+        position: 'absolute',
+        top: 10,
+        left: 10,
+        background: 'rgba(0,0,0,0.7)',
+        padding: '8px 12px',
+        borderRadius: '5px',
+        fontSize: '14px',
+        fontWeight: 'bold',
+        color: isSelectMode ? '#4CAF50' : '#FF9800',
+        zIndex: 1000
+      }}>
+        Mode: {isSelectMode ? 'SELECT' : 'VIEW'}
       </div>
     </div>
   );

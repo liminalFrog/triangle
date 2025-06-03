@@ -1,16 +1,16 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import './App.css';
 import TitleBar from './components/TitleBar';
-import SimpleTestScene from './components/SimpleTestScene';
+import BuildingScene from './components/BuildingScene';
 import StatusBar from './components/StatusBar';
 import FloatingPanel from './components/FloatingPanel';
 import ElementsPanel from './components/ElementsPanel';
-import InfoPanel from './components/InfoPanel';
 
 const electron = window.electron;
 const ipcRenderer = electron ? electron.ipcRenderer : null;
 
-function App() {  const [currentFile, setCurrentFile] = useState(null);
+function App() {
+  const [currentFile, setCurrentFile] = useState(null);
   const [projectData, setProjectData] = useState({ 
     // Default initial data
     scene: {
@@ -18,7 +18,16 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
     } 
   });
   const [dirty, setDirty] = useState(false);
-  const [currentViewType, setCurrentViewType] = useState('Perspective');
+  
+  // Callback to trigger building placement
+  const [triggerBuildingPlacement, setTriggerBuildingPlacement] = useState(null);
+  
+  // Handle building placement request from ElementsPanel
+  const handleStartBuildingPlacement = useCallback(() => {
+    if (triggerBuildingPlacement) {
+      triggerBuildingPlacement();
+    }
+  }, [triggerBuildingPlacement]);
 
   // Use useCallback to memoize the saveFile function
   const saveFile = useCallback((filePath) => {
@@ -26,22 +35,10 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
       const content = JSON.stringify(projectData, null, 2);
       ipcRenderer.send('save-file-content', { filePath, content });
     }
-  }, [projectData]);
-  // Handle keyboard shortcuts
+  }, [projectData]);  // Handle keyboard shortcuts
   const handleKeyDown = useCallback((e) => {
     // Skip if the target is an input element
     if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
-      return;
-    }
-      // Skip handling Shift+A as it's used for the context menu in Scene3D
-    if (e.key === 'A' && e.shiftKey) {
-      return;
-    }
-    
-    // Skip handling numpad keys as they're used for camera control in Scene3D
-    const numpadKeys = ['Numpad0', 'Numpad1', 'Numpad2', 'Numpad3', 'Numpad4', 
-                        'Numpad5', 'Numpad6', 'Numpad7', 'Numpad8', 'Numpad9'];
-    if (numpadKeys.includes(e.code) || (e.location === 3 && e.key >= '0' && e.key <= '9')) {
       return;
     }
     
@@ -173,49 +170,29 @@ function App() {  const [currentFile, setCurrentFile] = useState(null);
       
       // Remove event listener for keyboard shortcuts
       window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [saveFile, handleKeyDown]); 
-  const updateProjectData = (newData) => {
-    setProjectData(newData);
-    setDirty(true);
-  };
-
-  const handleViewTypeChange = useCallback((viewType) => {
-    setCurrentViewType(viewType);
-  }, []);
-
+    };  }, [saveFile, handleKeyDown]); 
+  
   return (
     <div className="app-container">
       <TitleBar 
         currentFile={currentFile}
         dirty={dirty}
-      />
-      <div className="content-area">
-        {/* Left floating panel (Elements) */}
-        <FloatingPanel
+      />      <div className="content-area">        {/* Left floating panel (Elements) */}        <FloatingPanel
           title="Elements"
           icon="elements-sm"
           position="left"
           topbottom="top"
           defaultWidth={300}
         >
-          <ElementsPanel />
+          <ElementsPanel onStartBuildingPlacement={handleStartBuildingPlacement} />
         </FloatingPanel>
-        
-        {/* Right floating panel (Info) */}
-        <FloatingPanel
-          title="Info"
-          icon="info-sm"
-          position="right"
-          topbottom="top"
-          defaultWidth={200}
-        >
-          <InfoPanel />
-        </FloatingPanel>
-          <SimpleTestScene />
-        
-        {/* Status bar at the bottom */}
-        <StatusBar viewType={currentViewType} />
+
+        {/* Main 3D Scene with integrated Properties FloatingPanel */}
+        <BuildingScene 
+          onSetPlacementTrigger={setTriggerBuildingPlacement}
+        />
+          {/* Status bar at the bottom */}
+        <StatusBar viewType="Perspective" />
       </div>
     </div>
   );

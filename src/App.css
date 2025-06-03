@@ -21,3 +21,48 @@
   height: 100%;
   position: absolute;
 }
+
+/* Custom scrollbars that match FloatingPanel drag handles */
+/* Webkit browsers (Chrome, Safari, Edge) */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: #0078d7;
+  border-radius: 4px;
+  opacity: 0.5;
+  transition: all 0.2s ease;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  opacity: 0.8;
+  background-color: #106ebe;
+}
+
+::-webkit-scrollbar-thumb:active {
+  opacity: 1;
+  background-color: #005a9e;
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 120, 215, 0.5) transparent;
+}
+
+/* For better integration with FloatingPanel content */
+.panel-content {
+  /* Ensure scrollbars inherit the custom styling */
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 120, 215, 0.5) transparent;
+}
