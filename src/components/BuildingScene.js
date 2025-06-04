@@ -117,14 +117,19 @@ function Wall({
 
   return (
     <mesh
-      ref={meshRef}
-      position={position}
+      ref={meshRef}      position={position}
       rotation={rotation}
       geometry={wallGeometry}
       material={material.clone()}
       onClick={(e) => {
         e.stopPropagation();
-        onWallClick(id, buildingId);
+        console.log('Wall clicked!', { id, buildingId, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey });
+        // Extract only needed properties from the React Three Fiber event
+        const eventInfo = {
+          shiftKey: e.shiftKey || false,
+          ctrlKey: e.ctrlKey || false
+        };
+        onWallClick(id, buildingId, eventInfo);
       }}
       userData={{
         type: 'wall',
@@ -207,11 +212,16 @@ function Roof({
     <mesh
       ref={meshRef}
       position={position}
-      geometry={roofGeometry}
-      material={material.clone()}
+      geometry={roofGeometry}      material={material.clone()}
       onClick={(e) => {
         e.stopPropagation();
-        onRoofClick(id, buildingId);
+        console.log('Roof clicked!', { id, buildingId, shiftKey: e.shiftKey, ctrlKey: e.ctrlKey });
+        // Extract only needed properties from the React Three Fiber event
+        const eventInfo = {
+          shiftKey: e.shiftKey || false,
+          ctrlKey: e.ctrlKey || false
+        };
+        onRoofClick(id, buildingId, eventInfo);
       }}
       userData={{
         type: 'roof',
@@ -262,6 +272,7 @@ function getWallAlignmentOffset(wall, alignment, wallThickness) {
 function Building({ 
   building, 
   selectedElement, 
+  selectedElements = [], // Add multi-selection support
   hoveredElement,
   onElementClick,
   wallAlignments = {}
@@ -269,8 +280,21 @@ function Building({
   const groupRef = useRef();
   const { id, position, properties } = building;
   const { width, length, eaveHeight, elevation } = properties;
-    const wallThickness = 0.5; // 6 inches
-  const wallHeight = properties.walls.heightToEaves ? eaveHeight : properties.walls.height;  // Calculate wall positions with alignment offsets
+  
+  // Check if element is selected (either single or multi-selection)
+  const isElementSelected = (elementId, elementType) => {
+    // Check single selection
+    if (selectedElement?.id === elementId) return true;
+    
+    // Check multi-selection
+    return selectedElements.some(el => el.id === elementId && el.type === elementType);
+  };
+  
+  // Check if entire building is selected in multi-selection
+  const isBuildingSelected = selectedElements.some(el => el.id === id && el.type === 'building');
+
+  const wallThickness = 0.5; // 6 inches
+  const wallHeight = properties.walls.heightToEaves ? eaveHeight : properties.walls.height;// Calculate wall positions with alignment offsets
   const getWallHeight = (side) => {
     // East/West walls (eave walls) only extend to eave height when heightToEaves is false
     if ((side === 'east' || side === 'west') && !properties.walls.heightToEaves) {
@@ -335,9 +359,12 @@ function Building({
           rotation={wall.rotation}
           dimensions={wall.dimensions}
           properties={wall.properties}
-          isSelected={selectedElement?.id === wall.id}
+          isSelected={isElementSelected(wall.id, 'wall') || isBuildingSelected}
           isHovered={hoveredElement?.id === wall.id}
-          onWallClick={onElementClick}
+          onWallClick={(wallId, wallBuildingId, eventInfo) => {
+            console.log('Building.onWallClick called:', { wallId, wallBuildingId, eventInfo });
+            onElementClick(wallId, 'wall', wallBuildingId, eventInfo);
+          }}
           buildingProperties={properties}
         />
       ))}
@@ -349,9 +376,12 @@ function Building({
         position={roofPosition}
         dimensions={[width, length]}
         properties={building.properties.roof}
-        isSelected={selectedElement?.id === roofId}
+        isSelected={isElementSelected(roofId, 'roof') || isBuildingSelected}
         isHovered={hoveredElement?.id === roofId}
-        onRoofClick={onElementClick}
+        onRoofClick={(roofId, roofBuildingId, eventInfo) => {
+          console.log('Building.onRoofClick called:', { roofId, roofBuildingId, eventInfo });
+          onElementClick(roofId, 'roof', roofBuildingId, eventInfo);
+        }}
       />
     </group>
   );
@@ -362,6 +392,8 @@ function SelectionHandler({
   buildings, 
   selectedElement, 
   setSelectedElement,
+  selectedElements = [], // Add multi-selection support
+  setSelectedElements,
   hoveredElement,
   setHoveredElement,
   tabCycleEnabled,
@@ -486,40 +518,6 @@ function SelectionHandler({
   return null;
 }
 
-// Click handler for building elements
-function ClickHandler({ hoveredElement, onElementClick }) {
-  const { scene, raycaster, camera, mouse } = useThree();
-  
-  const handleClick = useCallback((event) => {
-    // If we have a hovered element (potentially from tab cycling), select it
-    if (hoveredElement) {
-      onElementClick(hoveredElement.id, hoveredElement.type, hoveredElement.buildingId);
-      return;
-    }
-    
-    // Fallback to raycasting if no hovered element
-    raycaster.setFromCamera(mouse, camera);
-    const intersects = raycaster.intersectObjects(scene.children, true);
-    
-    const selectableObject = intersects.find(intersect => 
-      intersect.object.userData?.selectable
-    )?.object;
-    
-    if (selectableObject) {
-      const { id, type, buildingId } = selectableObject.userData;
-      onElementClick(id, type, buildingId);
-    } else {
-      onElementClick(null, null, null); // Clear selection
-    }
-  }, [scene, raycaster, camera, mouse, hoveredElement, onElementClick]);
-    useEffect(() => {
-    window.addEventListener('click', handleClick);
-    return () => window.removeEventListener('click', handleClick);
-  }, [handleClick]);
-  
-  return null;
-}
-
 // Mouse tracking for placement mode
 function MouseTracker({ placementMode, setMousePosition, placementAlignment, placementRotation, placementBuilding }) {
   const { raycaster, camera, mouse } = useThree();
@@ -586,13 +584,13 @@ function PlacementPreview({
     WALL: new THREE.MeshStandardMaterial({ 
       color: 0xffffff, 
       transparent: true, 
-      opacity: 0.6,
+      opacity: 0.5,
       emissive: 0x111111
     }),
     ROOF: new THREE.MeshStandardMaterial({ 
       color: 0xffffff, 
       transparent: true, 
-      opacity: 0.6,
+      opacity: 0.5,
       emissive: 0x111111
     })
   };
@@ -798,9 +796,9 @@ function PlacementControls({
 }
 
 // Main Building Scene component
-function BuildingScene({ onSetPlacementTrigger }) {
-  const [buildings, setBuildings] = useState([]);
+function BuildingScene({ onSetPlacementTrigger }) {  const [buildings, setBuildings] = useState([]);
   const [selectedElement, setSelectedElement] = useState(null);
+  const [selectedElements, setSelectedElements] = useState([]); // For multi-selection
   const [hoveredElement, setHoveredElement] = useState(null);
   const [tabCycleEnabled, setTabCycleEnabled] = useState(false);
   const [nextBuildingId, setNextBuildingId] = useState(1);
@@ -881,23 +879,166 @@ function BuildingScene({ onSetPlacementTrigger }) {
     setPlacementRotation(0);
     setPlacementAlignment('center');
   }, []);
-  
-  // Handle element selection
-  const handleElementClick = useCallback((elementId, elementType, buildingId) => {
-    if (elementId) {
+  // Add keyboard event handler for Esc key deselection
+  useEffect(() => {
+    const handleKeyDown = (event) => {
+      // Esc key - clear all selections
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        console.log('Esc pressed: Clearing all selections');
+        setSelectedElement(null);
+        setSelectedElements([]);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Handle element selection with multi-selection support
+  const handleElementClick = useCallback((elementId, elementType, buildingId, event = null) => {
+    // Debug logging
+    console.log('handleElementClick called:', {
+      elementId,
+      elementType,
+      buildingId,
+      event,
+      shiftKey: event?.shiftKey,
+      ctrlKey: event?.ctrlKey
+    });
+    
+    const isShiftClick = event?.shiftKey;
+    const isCtrlShiftClick = event?.ctrlKey && event?.shiftKey;
+    
+    console.log('Click type detected:', {
+      isShiftClick,
+      isCtrlShiftClick,
+      regularClick: !isShiftClick && !isCtrlShiftClick
+    });
+    
+    if (!elementId) {
+      // Click-off deselection: Clear all selections when clicking empty space
+      console.log('Click-off detected: Clearing all selections');
+      setSelectedElement(null);
+      setSelectedElements([]);
+      return;
+    }
+
+    if (isCtrlShiftClick) {
+      // Ctrl+Shift+Click: Select/deselect entire building
+      const newElement = {
+        id: buildingId,
+        type: 'building',
+        buildingId: buildingId
+      };
+      
+      setSelectedElements(prev => {
+        const isAlreadySelected = prev.some(el => el.id === buildingId && el.type === 'building');
+        if (isAlreadySelected) {
+          // Remove building from selection
+          return prev.filter(el => !(el.id === buildingId && el.type === 'building'));
+        } else {
+          // Add building to selection
+          return [...prev, newElement];
+        }
+      });
+      
+      // Clear single selection when multi-selecting
+      setSelectedElement(null);
+    } else if (isShiftClick) {
+      // Shift+Click: Add/remove individual element to multi-selection
+      const newElement = {
+        id: elementId,
+        type: elementType,
+        buildingId: buildingId
+      };
+      
+      setSelectedElements(prev => {
+        const isAlreadySelected = prev.some(el => el.id === elementId && el.type === elementType);
+        if (isAlreadySelected) {
+          // Remove element from selection
+          return prev.filter(el => !(el.id === elementId && el.type === elementType));
+        } else {
+          // Add element to selection
+          return [...prev, newElement];
+        }
+      });
+      
+      // Clear single selection when multi-selecting
+      setSelectedElement(null);
+    } else {
+      // Regular click: Single selection
       setSelectedElement({
         id: elementId,
         type: elementType,
         buildingId: buildingId
       });
-    } else {
-      setSelectedElement(null);
+      setSelectedElements([]); // Clear multi-selection
     }
   }, []);
+  // Click handler component for detecting clicks on empty space
+  function ClickHandler({ onElementClick }) {
+    const { scene, raycaster, camera, mouse } = useThree();
+    const [isMouseDown, setIsMouseDown] = useState(false);
+    const [mouseDownPos, setMouseDownPos] = useState({ x: 0, y: 0 });
+    
+    const handlePointerDown = useCallback((event) => {
+      setIsMouseDown(true);
+      setMouseDownPos({ x: event.clientX, y: event.clientY });
+    }, []);
+    
+    const handlePointerUp = useCallback((event) => {
+      if (!isMouseDown) return;
+      
+      // Check if this was a click (not a drag)
+      const deltaX = Math.abs(event.clientX - mouseDownPos.x);
+      const deltaY = Math.abs(event.clientY - mouseDownPos.y);
+      const isClick = deltaX < 5 && deltaY < 5; // 5px tolerance for click vs drag
+      
+      if (isClick) {
+        // Manually perform raycasting using current mouse position
+        raycaster.setFromCamera(mouse, camera);
+        const intersects = raycaster.intersectObjects(scene.children, true);
+        
+        // Find the first selectable object
+        const firstSelectableIntersect = intersects.find(intersect => {
+          return intersect.object.userData?.selectable;
+        });
+        
+        // Check if modifier keys are pressed
+        const isShiftClick = event.shiftKey;
+        const isCtrlShiftClick = event.ctrlKey && event.shiftKey;
+        
+        if (!firstSelectableIntersect) {
+          // Clicked on empty space - only clear if no modifier keys
+          if (!isShiftClick && !isCtrlShiftClick && !event.altKey) {
+            console.log('Empty space click detected: Clearing selections');
+            onElementClick(null, null, null, { shiftKey: false, ctrlKey: false });
+          }
+        }
+        // If we found a selectable object, let the mesh onClick handler deal with it
+      }
+      
+      setIsMouseDown(false);
+    }, [scene, raycaster, camera, mouse, onElementClick, isMouseDown, mouseDownPos]);
+    
+    // Set up global event listeners
+    useEffect(() => {
+      window.addEventListener('pointerdown', handlePointerDown);
+      window.addEventListener('pointerup', handlePointerUp);
+      
+      return () => {
+        window.removeEventListener('pointerdown', handlePointerDown);
+        window.removeEventListener('pointerup', handlePointerUp);
+      };
+    }, [handlePointerDown, handlePointerUp]);
+    
+    return null;
+  }
   
   return (
     <div style={{ width: '100vw', height: '100vh', position: 'relative' }}>      {/* Debug UI */}
-      {(selectedElement || hoveredElement || placementMode) && (
+      {(selectedElement || selectedElements.length > 0 || hoveredElement || placementMode) && (
         <div style={{
           position: 'absolute',
           top: '20px',
@@ -933,29 +1074,38 @@ function BuildingScene({ onSetPlacementTrigger }) {
             </div>
           )}
           
-          {hoveredElement && !selectedElement && (
+          {selectedElements.length > 0 && (
+            <div style={{ marginBottom: '8px' }}>
+              <div style={{ color: '#FF9800' }}>Multi-Selection ({selectedElements.length}):</div>
+              {selectedElements.map((el, index) => (
+                <div key={index} style={{ fontSize: '10px', opacity: 0.8, marginLeft: '10px' }}>
+                  {el.type}: {el.id}
+                </div>
+              ))}              <div style={{ fontSize: '10px', opacity: 0.7, marginTop: '4px' }}>
+                Shift+Click: Select elements | Ctrl+Shift+Click: Select buildings<br/>
+                Esc: Clear selection | Click empty space: Clear selection
+              </div>
+            </div>
+          )}
+          
+          {hoveredElement && !selectedElement && selectedElements.length === 0 && (
             <div style={{ opacity: 0.7 }}>
               <div>Hovered: {hoveredElement.type} ({hoveredElement.id})</div>
               {tabCycleEnabled && <div>Tab cycling enabled</div>}
             </div>
           )}
-        </div>
-      )}
-        {/* 3D Scene */}
+        </div>      )}
+      
+      {/* 3D Scene */}
       <Canvas
         camera={{ 
           position: [30, 25, 30], 
           fov: 60,
           near: 0.1,
           far: 1000
-        }}
-        shadows
+        }}        shadows
         tabIndex={0} // Make canvas focusable
         style={{ outline: 'none' }} // Remove focus outline
-        onClick={() => {
-          // Ensure canvas has focus for keyboard events
-          document.querySelector('canvas')?.focus();
-        }}
       >
         {/* Lighting */}
         <ambientLight intensity={0.4} />
@@ -982,22 +1132,24 @@ function BuildingScene({ onSetPlacementTrigger }) {
         
         {/* Grid */}
         <Grid sizeInFeet={100} />
-          {/* Buildings */}
-        {buildings.map(building => (
+          {/* Buildings */}        {buildings.map(building => (
           <Building
             key={building.id}
             building={building}
             selectedElement={selectedElement}
+            selectedElements={selectedElements}
             hoveredElement={hoveredElement}
             onElementClick={handleElementClick}
             wallAlignments={wallAlignments}
           />
-        ))}
-          {/* Selection and interaction handlers */}
+        ))}        {/* Selection and interaction handlers */}
+        <ClickHandler onElementClick={handleElementClick} />
         <SelectionHandler
           buildings={buildings}
           selectedElement={selectedElement}
           setSelectedElement={setSelectedElement}
+          selectedElements={selectedElements}
+          setSelectedElements={setSelectedElements}
           hoveredElement={hoveredElement}
           setHoveredElement={setHoveredElement}
           tabCycleEnabled={tabCycleEnabled}
@@ -1005,10 +1157,7 @@ function BuildingScene({ onSetPlacementTrigger }) {
           wallAlignments={wallAlignments}
           setWallAlignments={setWallAlignments}
         />
-          <ClickHandler 
-          hoveredElement={hoveredElement}
-          onElementClick={handleElementClick} 
-        />
+        {/* Removed global ClickHandler - using mesh onClick handlers instead */}
           {/* Placement system components */}
         <MouseTracker 
           placementMode={placementMode}
